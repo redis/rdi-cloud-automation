@@ -14,6 +14,6 @@ output "database" {
 }
 
 output "port" {
-  value       = local.port
+  value       = var.port
   description = "The port for the NLB"
 }

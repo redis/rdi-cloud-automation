@@ -4,9 +4,9 @@ This directory contains example Terraform to connect Redis Cloud RDI to an examp
 
 ## Usage
 
-You can run `terraform init && terraform apply` to create the example in the `us-east-1` region.
+You can run `terraform init && terraform apply -var-file example.tfvars` to create the example in the `us-east-1` region.
 
-To run in a different region you can edit `main.tf` 
+To run in a different region you can edit the values in `example.tfvars`.
 
 ## Submodules
 
