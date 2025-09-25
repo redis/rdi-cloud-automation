@@ -16,10 +16,10 @@ resource "aws_security_group" "producer_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  # To be able to ssh in the vm
+  # To be able to connect to postgres from the LB 
   ingress {
-    from_port = 5432
-    to_port   = 5432
+    from_port = var.db_port
+    to_port   = var.db_port
     protocol  = "tcp"
     self      = true
   }

@@ -51,7 +51,7 @@ locals {
     docker build -t postgres_rdi_ingest:v0.1 .
 
     # Run Docker PostgreSQL container
-    docker run -d --rm --name postgres --rm -e POSTGRES_PASSWORD=${var.db_password} -p ${var.db_port}:${var.db_port} postgres_rdi_ingest:v0.1
+    docker run -d --rm --name postgres --rm -e POSTGRES_PASSWORD='${var.db_password}' -p ${var.db_port}:${var.db_port} postgres_rdi_ingest:v0.1
   EOF
 
   oracle_user_data = <<-EOF

@@ -19,9 +19,9 @@ provider "aws" {
 }
 
 locals {
-  port = 5432
-  name = "redis-rdi"
-  redis_account = "509164050179"
+  port          = 5432
+  name          = "redis-rdi"
+  redis_account = "878568072780"
 }
 
 # Create an RDI quickstart Postgres database on an EC2 instance
@@ -56,7 +56,7 @@ module "secret_manager" {
   # Because Secret Manager secrets are soft-deleted, add a random suffix to make the name unique.
   # Otherwise running multiple apply-destroy cycles will fail because of the names conflicting.
   identifier    = "${local.name}-${random_id.secret_suffix.hex}"
-  redis_account = local.redis_account 
+  redis_account = local.redis_account
   username      = "postgres"
   password      = random_password.pg_password.result
 }
