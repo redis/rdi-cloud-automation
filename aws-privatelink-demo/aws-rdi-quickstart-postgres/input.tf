@@ -25,7 +25,6 @@ variable "instance_type" {
 variable "ssh_key_name" {
   description = "The name of the SSH key pair in AWS"
   type        = string
-  default     = "rdi-ta-producer-test-key"
 }
 
 variable "identifier" {

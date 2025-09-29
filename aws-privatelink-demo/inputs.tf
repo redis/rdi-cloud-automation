@@ -3,7 +3,7 @@ variable "region" {
 }
 
 variable "port" {
-  type = number 
+  type = number
 }
 
 variable "name" {
@@ -12,6 +12,11 @@ variable "name" {
 
 variable "redis_account" {
   type = string
+}
+
+variable "ssh_key_name" {
+  type    = string
+  default = null
 }
 
 variable "azs" {

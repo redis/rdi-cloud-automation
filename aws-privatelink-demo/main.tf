@@ -15,7 +15,7 @@ terraform {
 
 provider "aws" {
   # Configure the region for the resources
-  region = var.region 
+  region = var.region
 }
 
 # Create an RDI quickstart Postgres database on an EC2 instance
@@ -27,6 +27,8 @@ module "rdi_quickstart_postgres" {
   db_type     = "postgresql"
   db_port     = var.port
   azs         = var.azs
+
+  ssh_key_name = var.ssh_key_name
 }
 
 # Create an NLB and PrivateLink Endpoint Service which allows secure connection to the database from Redis Cloud
