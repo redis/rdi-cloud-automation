@@ -7,7 +7,7 @@ resource "aws_lb" "producer_nlb" {
   dns_record_client_routing_policy = "availability_zone_affinity"
   enable_cross_zone_load_balancing = true
 
-  enforce_security_group_inbound_rules_on_private_link_traffic = false
+  enforce_security_group_inbound_rules_on_private_link_traffic = "off"
   security_groups                                              = var.security_groups
 
   tags = {
