@@ -17,3 +17,8 @@ output "port" {
   value       = var.port
   description = "The port for the NLB"
 }
+
+output "password" {
+  value = random_password.pg_password 
+  sensitive = true
+}
