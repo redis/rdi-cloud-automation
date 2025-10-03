@@ -19,6 +19,13 @@ output "port" {
 }
 
 output "password" {
-  value = random_password.pg_password 
-  sensitive = true
+  value       = random_password.pg_password.result
+  sensitive   = true
+  description = "The postgres password. This is not used for RDI setup, only to connect to the DB with psql"
+}
+
+output "ec2_instance_hostname" {
+  value       = module.rdi_quickstart_postgres.instance_hostname
+  sensitive   = true
+  description = "The postgres instance hostname. This is not used for RDI setup, only to connect to the DB with psql"
 }

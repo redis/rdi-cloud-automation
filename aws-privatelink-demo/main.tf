@@ -62,7 +62,6 @@ resource "random_id" "secret_suffix" {
 }
 
 resource "random_password" "pg_password" {
-  length           = 16
-  special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
+  length  = 16
+  special = false
 }

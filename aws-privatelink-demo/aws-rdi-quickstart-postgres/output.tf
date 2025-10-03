@@ -18,3 +18,7 @@ output "ec2_public_dns" {
 output "security_group_id" {
   value = aws_security_group.producer_sg.id
 }
+
+output "instance_hostname" {
+  value = module.aws_instance.public_dns
+}

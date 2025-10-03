@@ -23,7 +23,13 @@ resource "aws_security_group" "producer_sg" {
     protocol  = "tcp"
     self      = true
   }
-
+  # To be able to connect to postgres from the demo machine 
+  ingress {
+    from_port   = var.db_port
+    to_port     = var.db_port
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
   tags = {
     Name = "producer-sg-${var.identifier}"
   }

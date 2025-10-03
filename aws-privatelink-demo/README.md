@@ -2,11 +2,28 @@
 
 This directory contains example Terraform to connect Redis Cloud RDI to an example Postgres source database.
 
+## Setup
+
+To use the example Terraform you must have:
+- [Terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
+- [AWS CLI](https://aws.amazon.com/cli/)
+- [AWS credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html)
+
+Run `terraform init` to initialize the Terraform repository. This is only necessary the first time you use the repo.
+
 ## Usage
 
-You can run `terraform init && terraform apply -var-file example.tfvars` to create the example in the `us-east-1` region.
+Copy the values from the Redis Cloud RDI UI into `example.tfvars`. 
 
-To run in a different region you can edit the values in `example.tfvars`.
+Run `terraform apply -var-file example.tfvars`
+
+## Connecting to the database
+
+You can connect to the postgres database directly from your laptop by running `./psql.sh`.
+
+## Tearing down
+
+Run `terraform destroy -var-file example.tfvars` to destroy the resources.
 
 ## Submodules
 
