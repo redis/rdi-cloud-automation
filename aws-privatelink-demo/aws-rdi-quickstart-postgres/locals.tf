@@ -1,3 +1,9 @@
+data "archive_file" "pg_docker" {
+  type = "tar.gz"
+  source_dir = "${path.module}/user-data"
+  output_path = "userdata.tgz"
+}
+
 locals {
   az_map = zipmap(data.aws_availability_zones.available.zone_ids, data.aws_availability_zones.available.names)
   azs    = [for az_id in var.azs : local.az_map[az_id]]
@@ -10,52 +16,39 @@ locals {
     local.postgresql_user_data
   )
 
+  postgres_init_script = templatefile(
+    "${path.module}/user-data/on-boot.sh",
+    {db_password = var.db_password, db_port = var.db_port}
+  )
+
   postgresql_user_data = <<-EOF
-    #!/bin/bash
-    # Update the system
-    sudo apt-get update
-
-    # Install Docker
-    # Add Docker's official GPG key:
-    sudo apt-get install ca-certificates curl -y
-    sudo install -m 0755 -d /etc/apt/keyrings
-    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-    sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-    # Add the repository to Apt sources:
-    echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-      $(. /etc/os-release && echo "$${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    sudo apt-get update
-    sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
-
-    # Add current user to the Docker group
-    sudo groupadd docker
-    sudo gpasswd -a $USER docker
-    newgrp docker
-
-    # # Add the PostgreSQL repository
-    # sudo amazon-linux-extras install postgresql13 -y
-
-    # # Install the PostgreSQL client
-    # sudo yum install postgresql -y
-
-    # Clone the repository with the PostgreSQL data
-    git clone https://github.com/Redislabs-Solution-Architects/rdi-quickstart-postgres.git
-
-    # Change to the directory with the PostgreSQL data
-    cd rdi-quickstart-postgres/
-
-    # TODO: remove when this is merged to main
-    git checkout RDSC-4137
-
-    # Build Docker PostgreSQL container
-    docker build -t postgres_rdi_ingest:v0.1 .
-
-    # Run Docker PostgreSQL container
-    docker run -d --rm --name postgres --rm -e POSTGRES_PASSWORD='${var.db_password}' -p ${var.db_port}:${var.db_port} postgres_rdi_ingest:v0.1
-  EOF
+    Content-Type: multipart/mixed; boundary="//"
+    MIME-Version: 1.0
+     
+    --//
+    Content-Type: text/cloud-config; charset="us-ascii"
+    MIME-Version: 1.0
+    Content-Transfer-Encoding: 7bit
+    Content-Disposition: attachment;
+     filename="cloud-config.txt"
+    #cloud-config
+    write_files:
+    - encoding: base64 
+      content: ${filebase64(data.archive_file.pg_docker.output_path)} 
+      path: /var/rdi-quickstart-postgres.tgz
+      permissions: '0755'
+    #cloud-config
+    cloud_final_modules:
+    - [scripts-user, always]
+    - [write_files, always]
+    --//
+    Content-Type: text/x-shellscript; charset="us-ascii"
+    MIME-Version: 1.0
+    Content-Transfer-Encoding: 7bit
+    Content-Disposition: attachment; filename="userdata.txt"
+    ${local.postgres_init_script}
+    --//--
+EOF
 
   oracle_user_data = <<-EOF
     #!/bin/bash
