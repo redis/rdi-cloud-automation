@@ -1,6 +1,6 @@
 data "archive_file" "pg_docker" {
-  type = "tar.gz"
-  source_dir = "${path.module}/user-data"
+  type        = "tar.gz"
+  source_dir  = "${path.module}/user-data"
   output_path = "userdata.tgz"
 }
 
@@ -18,7 +18,7 @@ locals {
 
   postgres_init_script = templatefile(
     "${path.module}/user-data/on-boot.sh",
-    {db_password = var.db_password, db_port = var.db_port}
+    { db_password = var.db_password, db_port = var.db_port }
   )
 
   postgresql_user_data = <<-EOF
