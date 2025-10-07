@@ -32,15 +32,6 @@ variable "identifier" {
   type        = string
 }
 
-variable "db_type" {
-  description = "The type of database"
-  type        = string
-  validation {
-    condition     = contains(["postgresql", "oracle", "sqlserver", "mariadb", "mysql"], var.db_type)
-    error_message = "Invalid source_type, valid options are: postgresql, oracle, sqlserver, mariadb, mysql"
-  }
-}
-
 variable "db_password" {
   description = "The password for connecting to the Producer Source Database"
   type        = string
@@ -50,16 +41,3 @@ variable "db_port" {
   description = "The port for connecting to the Producer Source Database"
   type        = number
 }
-
-variable "source_pdb" {
-  description = "Related to Oracle source type. The pluggable database to replicate"
-  type        = string
-  default     = "ORCLPDB1"
-}
-
-variable "source_db_tls_enabled" {
-  description = "Whether the source database requires TLS for connections"
-  type        = bool
-  default     = false
-}
-

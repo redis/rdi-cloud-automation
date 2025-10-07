@@ -24,7 +24,6 @@ module "rdi_quickstart_postgres" {
 
   identifier  = var.name
   db_password = random_password.pg_password.result
-  db_type     = "postgresql"
   db_port     = var.port
   azs         = var.azs
 
