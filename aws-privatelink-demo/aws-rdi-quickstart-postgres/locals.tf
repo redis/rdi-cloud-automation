@@ -47,6 +47,9 @@ locals {
     # Change to the directory with the PostgreSQL data
     cd rdi-quickstart-postgres/
 
+    # TODO: remove when this is merged to main
+    git checkout RDSC-4137
+
     # Build Docker PostgreSQL container
     docker build -t postgres_rdi_ingest:v0.1 .
 
