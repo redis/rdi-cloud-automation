@@ -20,7 +20,7 @@ provider "aws" {
 
 # Create an RDI quickstart Postgres database on an EC2 instance
 module "rdi_quickstart_postgres" {
-  source = "./aws-rdi-quickstart-postgres"
+  source = "../../modules/aws-rdi-quickstart-postgres"
 
   identifier  = var.name
   db_password = random_password.pg_password.result
@@ -32,7 +32,7 @@ module "rdi_quickstart_postgres" {
 
 # Create an NLB and PrivateLink Endpoint Service which allows secure connection to the database from Redis Cloud
 module "privatelink" {
-  source = "./aws-privatelink"
+  source = "../../modules/aws-privatelink"
 
   identifier         = var.name
   port               = var.port
@@ -46,7 +46,7 @@ module "privatelink" {
 
 # Create a secret in AWS Secret Manager with the database credentials
 module "secret_manager" {
-  source = "./aws-secret-manager"
+  source = "../../modules/aws-secret-manager"
 
   # Because Secret Manager secrets are soft-deleted, add a random suffix to make the name unique.
   # Otherwise running multiple apply-destroy cycles will fail because of the names conflicting.
