@@ -1,6 +1,6 @@
 # Create a Network Load Balancer to route traffic to the EC2 instance
 resource "aws_lb" "producer_nlb" {
-  name                             = "producer-nlb-${var.identifier}"
+  name                             = var.identifier
   internal                         = false
   load_balancer_type               = "network"
   subnets                          = var.subnets
@@ -11,7 +11,7 @@ resource "aws_lb" "producer_nlb" {
   security_groups                                              = var.security_groups
 
   tags = {
-    Name = "producer-nlb-${var.identifier}"
+    Name = var.identifier
   }
 }
 
@@ -29,7 +29,7 @@ resource "aws_lb_listener" "producer_listener" {
 
 # Create a target group for the Network Load Balancer
 resource "aws_lb_target_group" "producer_tg" {
-  name        = "producer-tg-${var.identifier}"
+  name        = var.identifier
   port        = var.port
   protocol    = "TCP"
   vpc_id      = var.vpc_id
@@ -45,7 +45,7 @@ resource "aws_lb_target_group" "producer_tg" {
   }
 
   tags = {
-    Name = "producer-tg-${var.identifier}"
+    Name = var.identifier
   }
 }
 

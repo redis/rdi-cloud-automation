@@ -41,7 +41,7 @@ module "privatelink" {
   target_type        = "instance"
   target             = module.rdi_quickstart_postgres.instance_id
   security_groups    = [module.rdi_quickstart_postgres.security_group_id]
-  allowed_principals = ["arn:aws:iam::${var.redis_account}:role/redis-data-pipeline"]
+  allowed_principals = [var.redis_privatelink_arn]
 }
 
 # Create a secret in AWS Secret Manager with the database credentials
@@ -50,10 +50,10 @@ module "secret_manager" {
 
   # Because Secret Manager secrets are soft-deleted, add a random suffix to make the name unique.
   # Otherwise running multiple apply-destroy cycles will fail because of the names conflicting.
-  identifier    = "${var.name}-${random_id.secret_suffix.hex}"
-  redis_account = var.redis_account
-  username      = "postgres"
-  password      = random_password.pg_password.result
+  identifier         = "${var.name}-${random_id.secret_suffix.hex}"
+  allowed_principals = [var.redis_secrets_arn]
+  username           = "postgres"
+  password           = random_password.pg_password.result
 }
 
 resource "random_id" "secret_suffix" {
