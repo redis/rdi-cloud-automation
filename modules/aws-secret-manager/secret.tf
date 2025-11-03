@@ -3,17 +3,17 @@ resource "aws_secretsmanager_secret" "rdi_secret" {
   kms_key_id = resource.aws_kms_key.rdi_key.arn
   policy = jsonencode({
     "Version" : "2012-10-17",
-    "Statement" : [{
-      "Sid" : "RedisDataIntegrationRoleAccess",
-      "Effect" : "Allow",
-      "Principal" : "*",
-      "Action" : ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"],
-      "Resource" : "*",
-      "Condition" : {
-        "StringLike" : {
-          "aws:PrincipalArn" : "arn:aws:iam::${var.redis_account}:role/redis-data-pipeline-secrets-role"
+    "Statement" : [for p in var.allowed_principals :
+      {
+        "Effect" : "Allow",
+        "Principal" : "*",
+        "Action" : ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"],
+        "Resource" : "*",
+        "Condition" : {
+          "StringLike" : {
+            "aws:PrincipalArn" : p
+          }
         }
-      }
     }]
   })
 }

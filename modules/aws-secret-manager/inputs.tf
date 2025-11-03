@@ -2,8 +2,8 @@ variable "identifier" {
   type = string
 }
 
-variable "redis_account" {
-  type = string
+variable "allowed_principals" {
+  type = list(string)
 }
 
 variable "username" {
