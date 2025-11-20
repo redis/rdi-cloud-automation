@@ -1,0 +1,8 @@
+.terraform
+.idea
+producer
+producer-west
+userdata.tgz
+scripts
+mysql.log
+*.tfstate.*.backup
