@@ -30,6 +30,7 @@ module "rdi_quickstart_postgres" {
 
 module "rds_lambda" {
   source = "../../modules/aws-rds-lambda"
+  depends_on =  [module.rdi_quickstart_postgres]
 
   identifier  = var.name
   elb_tg_arn  = module.privatelink.tg_arn

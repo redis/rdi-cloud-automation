@@ -1,6 +1,7 @@
 resource "null_resource" "setup_chinook" {
   depends_on = [
-    module.rdi_quickstart_postgres
+    module.rdi_quickstart_postgres,
+    module.rds_lambda
   ]
   provisioner "local-exec" {
     environment = {
