@@ -8,9 +8,9 @@ variable "port" {
   description = "The port to listen on and forward to in the target group"
 }
 
-variable "target" {
-  type        = string
-  description = "The identifier of the load balancer target - this can be an ip or EC2 instance ID"
+variable "targets" {
+  type        = list(string)
+  description = "The identifier of the load balancer targets - this can be an ip or EC2 instance ID"
 }
 
 variable "target_type" {
