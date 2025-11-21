@@ -39,7 +39,7 @@ module "privatelink" {
   vpc_id             = module.rdi_quickstart_postgres.vpc_id
   subnets            = module.rdi_quickstart_postgres.vpc_public_subnets
   target_type        = "instance"
-  target             = module.rdi_quickstart_postgres.instance_id
+  targets            = [module.rdi_quickstart_postgres.instance_id]
   security_groups    = [module.rdi_quickstart_postgres.security_group_id]
   allowed_principals = [var.redis_privatelink_arn]
 }

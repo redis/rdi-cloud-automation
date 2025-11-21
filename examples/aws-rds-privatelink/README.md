@@ -1,6 +1,8 @@
-# AWS RDI PrivateLink Demo
+# AWS RDI RDS PrivateLink Demo
 
-This directory contains example Terraform to connect Redis Cloud RDI to an example Postgres source database.
+This directory contains example Terraform to connect Redis Cloud RDI to an Aurora Postgres RDS database and handle failover.
+
+This blog post from AWS documents the architecture: https://aws.amazon.com/blogs/database/access-amazon-rds-across-vpcs-using-aws-privatelink-and-network-load-balancer/
 
 ## Setup
 
@@ -27,8 +29,9 @@ Run `terraform destroy -var-file example.tfvars` to destroy the resources.
 
 ## Submodules
 
-There are 3 submodules which can be reused:
+There are 4 submodules which can be reused:
 
-- `aws-rdi-quickstart-postgres` - creates a VPC, Security Group and EC2 instance running a demo Postgres database
+- `aws-rds-chinook` - creates a VPC, Security Group and RDS database with 2 instances 
+- `aws-rds-lambda` - creates a Lambda function to update the Load Balancer target group based on SNS events from RDS 
 - `aws-privatelink` - creates a Network Load Balancer and PrivateLink Service Endpoint to permit connectivity from Redis Cloud to the database
 - `aws-secret-manager` - creates a Secret Manager secret with IAM permissions to work with Redis Cloud
