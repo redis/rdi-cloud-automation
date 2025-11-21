@@ -47,8 +47,8 @@ resource "aws_db_event_subscription" "rds_cluster_failover_event" {
 }
 
 resource "aws_lambda_invocation" "initial" {
-    function_name = aws_lambda_function.rdi_failover_lambda.function_name
-    input = "{}"
+  function_name = aws_lambda_function.rdi_failover_lambda.function_name
+  input         = "{}"
 }
 
 resource "aws_lambda_permission" "with_sns" {
