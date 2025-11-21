@@ -9,6 +9,18 @@ resource "aws_rds_cluster" "postgresql" {
   skip_final_snapshot = true
   db_subnet_group_name = module.vpc.database_subnet_group_name
   vpc_security_group_ids = [aws_security_group.producer_sg.id]
+  db_instance_parameter_group_name = aws_db_parameter_group.default.name
+}
+
+resource "aws_db_parameter_group" "default" {
+  name   = var.identifier 
+  family = "postgres17"
+
+  parameter {
+    name  = "rds.logical_replication"
+    value = "1"
+    apply_method = "pending-reboot"
+  }
 }
 
 resource "aws_rds_cluster_instance" "cluster_instances" {
