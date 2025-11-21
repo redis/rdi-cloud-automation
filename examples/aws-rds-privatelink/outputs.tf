@@ -24,12 +24,6 @@ output "password" {
   description = "The postgres password. This is not used for RDI setup, only to connect to the DB with psql"
 }
 
-output "rds_arn" {
-  value       = module.rdi_quickstart_postgres.rds_arn
-  sensitive   = true
-  description = "The postgres RDS ARN"
-}
-
 output "psql_host" {
   value = module.privatelink.lb_hostname
 }

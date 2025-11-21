@@ -26,11 +26,6 @@ variable "redis_privatelink_arn" {
   }
 }
 
-variable "ssh_key_name" {
-  type    = string
-  default = null
-}
-
 variable "azs" {
   type = list(string)
 }
