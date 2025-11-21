@@ -8,13 +8,13 @@ variable "db_endpoint" {
 }
 
 variable "db_port" {
-  type = number 
+  type = number
 }
 
 variable "elb_tg_arn" {
-  type        = string
+  type = string
 }
 
 variable "rds_arn" {
-  type        = string
+  type = string
 }

@@ -15,15 +15,15 @@ resource "aws_sns_topic_policy" "rdi_failover_topic_policy" {
           AWS = "*"
         }
         Action = [
-           "SNS:GetTopicAttributes",
-           "SNS:SetTopicAttributes",
-           "SNS:AddPermission",
-           "SNS:RemovePermission",
-           "SNS:DeleteTopic",
-           "SNS:Subscribe",
-           "SNS:ListSubscriptionsByTopic",
-           "SNS:Publish",
-           "SNS:Receive"
+          "SNS:GetTopicAttributes",
+          "SNS:SetTopicAttributes",
+          "SNS:AddPermission",
+          "SNS:RemovePermission",
+          "SNS:DeleteTopic",
+          "SNS:Subscribe",
+          "SNS:ListSubscriptionsByTopic",
+          "SNS:Publish",
+          "SNS:Receive"
         ]
         Resource = aws_sns_topic.rdi_failover_topic.arn
       }
@@ -38,12 +38,12 @@ resource "aws_sns_topic_subscription" "rdi_failover_subscription" {
 }
 
 resource "aws_db_event_subscription" "rds_cluster_failover_event" {
-  name = "${var.identifier}-rds-cluster-events"
-  sns_topic = aws_sns_topic.rdi_failover_topic.arn
+  name             = "${var.identifier}-rds-cluster-events"
+  sns_topic        = aws_sns_topic.rdi_failover_topic.arn
   event_categories = ["creation", "failover", "failure"]
-  source_type = "db-cluster"
-  source_ids  = [split(".", var.db_endpoint)[0]]
-  enabled = true
+  source_type      = "db-cluster"
+  source_ids       = [split(".", var.db_endpoint)[0]]
+  enabled          = true
 }
 
 action "aws_lambda_invoke" "initial" {

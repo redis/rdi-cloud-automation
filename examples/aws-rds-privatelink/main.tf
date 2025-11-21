@@ -32,10 +32,10 @@ module "rds_lambda" {
   source = "../../modules/aws-rds-lambda"
 
   identifier  = var.name
-  elb_tg_arn = module.privatelink.tg_arn
+  elb_tg_arn  = module.privatelink.tg_arn
   db_endpoint = module.rdi_quickstart_postgres.rds_endpoint
-  rds_arn = module.rdi_quickstart_postgres.rds_arn
-  db_port = var.port
+  rds_arn     = module.rdi_quickstart_postgres.rds_arn
+  db_port     = var.port
 }
 
 # Create an NLB and PrivateLink Endpoint Service which allows secure connection to the database from Redis Cloud.

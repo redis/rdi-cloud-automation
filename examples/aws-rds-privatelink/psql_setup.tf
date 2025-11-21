@@ -1,10 +1,10 @@
 resource "null_resource" "setup_chinook" {
-  depends_on = [ 
-    module.rdi_quickstart_postgres  
+  depends_on = [
+    module.rdi_quickstart_postgres
   ]
   provisioner "local-exec" {
     environment = {
-      PGPASSWORD: nonsensitive(random_password.pg_password.result)
+      PGPASSWORD : nonsensitive(random_password.pg_password.result)
     }
     command = <<EOF
 #!/bin/sh

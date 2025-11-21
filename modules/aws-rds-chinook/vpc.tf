@@ -7,9 +7,9 @@ module "vpc" {
   cidr                    = var.vpc_cidr
   map_public_ip_on_launch = true
 
-  azs            = local.azs
-  public_subnets = var.public_subnet_cidr
-  private_subnets = var.private_subnet_cidr
+  azs              = local.azs
+  public_subnets   = var.public_subnet_cidr
+  private_subnets  = var.private_subnet_cidr
   database_subnets = var.database_subnet_cidr
 
   tags = {
