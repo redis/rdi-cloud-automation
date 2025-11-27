@@ -10,6 +10,10 @@ The `examples` directory contains complete examples which can be configured and 
 
 Creates an example Postgres database exposed with PrivateLink. This example creates a VPC and can be used to try RDI quickly with no existing resources. 
 
+### aws-rds-privatelink-failover
+
+Creates an Aurora RDS database with two instances exposed with PrivateLink. This example supports failing over between instances using a Lambda function to detect events. 
+
 ## Modules
 
 The `modules` directory contains reusable Terraform modules which can be composed together.
@@ -21,6 +25,14 @@ AWS PrivateLink connection via a Network Load Balancer.
 ### aws-rdi-quickstart-postgres
 
 VPC and EC2 instance with a sample Postgres database.
+
+### aws-rds-chinook
+
+Aurora Postgres RDS cluster with 2 instances.
+
+### aws-rds-lambda
+
+A Lambda function triggered by RDS Events to SNS, which updates an NLB with the current Aurora writer instance.
 
 ### aws-secret-manager
 
