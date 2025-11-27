@@ -18,19 +18,29 @@ provider "aws" {
   region = var.region
 }
 
-# Create an RDI quickstart Postgres database on an EC2 instance
+# Create an RDI quickstart Postgres database on RDS 
 module "rdi_quickstart_postgres" {
-  source = "../../modules/aws-rdi-quickstart-postgres"
+  source = "../../modules/aws-rds-chinook"
 
   identifier  = var.name
   db_password = random_password.pg_password.result
   db_port     = var.port
   azs         = var.azs
-
-  ssh_key_name = var.ssh_key_name
 }
 
-# Create an NLB and PrivateLink Endpoint Service which allows secure connection to the database from Redis Cloud
+module "rds_lambda" {
+  source     = "../../modules/aws-rds-lambda"
+  depends_on = [module.rdi_quickstart_postgres]
+
+  identifier  = var.name
+  elb_tg_arn  = module.privatelink.tg_arn
+  db_endpoint = module.rdi_quickstart_postgres.rds_endpoint
+  rds_arn     = module.rdi_quickstart_postgres.rds_arn
+  db_port     = var.port
+}
+
+# Create an NLB and PrivateLink Endpoint Service which allows secure connection to the database from Redis Cloud.
+# This has no targets but we will add a Lambda function to update the target.
 module "privatelink" {
   source = "../../modules/aws-privatelink"
 
@@ -38,8 +48,8 @@ module "privatelink" {
   port               = var.port
   vpc_id             = module.rdi_quickstart_postgres.vpc_id
   subnets            = module.rdi_quickstart_postgres.vpc_public_subnets
-  target_type        = "instance"
-  targets            = [module.rdi_quickstart_postgres.instance_id]
+  target_type        = "ip"
+  targets            = []
   security_groups    = [module.rdi_quickstart_postgres.security_group_id]
   allowed_principals = [var.redis_privatelink_arn]
 }
