@@ -9,7 +9,7 @@ variable "port" {
 }
 
 variable "targets" {
-  type        = list(string)
+  type        = map(string)
   description = "The identifier of the load balancer targets - this can be an ip or EC2 instance ID"
 }
 

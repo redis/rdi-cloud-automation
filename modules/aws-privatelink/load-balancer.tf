@@ -51,7 +51,7 @@ resource "aws_lb_target_group" "producer_tg" {
 
 # Attach the EC2 instance to the target group
 resource "aws_lb_target_group_attachment" "producer_tga" {
-  for_each = toset(var.targets)
+  for_each = var.targets
 
   target_group_arn = aws_lb_target_group.producer_tg.arn
   target_id        = each.value
