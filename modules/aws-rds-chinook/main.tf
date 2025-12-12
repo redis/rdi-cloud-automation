@@ -10,6 +10,7 @@ resource "aws_rds_cluster" "postgresql" {
   db_subnet_group_name            = module.vpc.database_subnet_group_name
   vpc_security_group_ids          = [aws_security_group.producer_sg.id]
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.default.name
+  apply_immediately               = true
 }
 
 resource "aws_rds_cluster_parameter_group" "default" {
