@@ -1,0 +1,11 @@
+region                = "eu-central-1"
+azs                   = ["euc1-az1", "euc1-az2", "euc1-az3"]
+port                  = 3306  # MySQL default port
+name                  = "rdi-rds-mysql-zdravko"
+redis_secrets_arn     = "arn:aws:iam::268806353046:role/redis-data-pipeline-secrets-role"
+redis_privatelink_arn = "arn:aws:iam::268806353046:role/redis-data-pipeline"
+db_engine             = "mysql"
+aws_profile           = "dev-rdi"
+use_rds_proxy = true
+rds_proxy_require_tls = true
+nlb_internal = false

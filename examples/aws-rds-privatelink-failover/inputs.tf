@@ -29,3 +29,37 @@ variable "redis_privatelink_arn" {
 variable "azs" {
   type = list(string)
 }
+
+variable "db_engine" {
+  description = "Database engine to use: 'postgres' or 'mysql'"
+  type        = string
+  default     = "postgres"
+  validation {
+    condition     = contains(["postgres", "mysql"], var.db_engine)
+    error_message = "db_engine must be either 'postgres' or 'mysql'"
+  }
+}
+
+variable "aws_profile" {
+  description = "AWS CLI profile to use for authentication (optional, can also use AWS_PROFILE env var)"
+  type        = string
+  default     = null
+}
+
+variable "use_rds_proxy" {
+  description = "DEPRECATED: Enable RDS Proxy between NLB and RDS. RDS Proxy is deprecated and not recommended for new deployments. Default: false"
+  type        = bool
+  default     = false
+}
+
+variable "rds_proxy_require_tls" {
+  description = "Whether to require TLS for connections to RDS Proxy. Only applies when use_rds_proxy = true. Default: false"
+  type        = bool
+  default     = false
+}
+
+variable "nlb_internal" {
+  description = "Whether the NLB should be internal (private, PrivateLink only) or internet-facing (public, direct access). Default: true (private)"
+  type        = bool
+  default     = true
+}

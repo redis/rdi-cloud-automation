@@ -18,3 +18,8 @@ variable "elb_tg_arn" {
 variable "rds_arn" {
   type = string
 }
+
+variable "rds_cluster_identifier" {
+  description = "The RDS cluster identifier for event subscription (always points to RDS, not proxy)"
+  type        = string
+}
