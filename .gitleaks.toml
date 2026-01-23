@@ -1,0 +1,116 @@
+# Gitleaks configuration file
+# https://github.com/gitleaks/gitleaks
+
+title = "RDI Cloud Automation - Gitleaks Configuration"
+
+[extend]
+# Use the default Gitleaks rules as a base
+useDefault = true
+
+[allowlist]
+description = "Allowlist for false positives"
+
+# Allowlist specific paths that are known to be safe
+paths = [
+  '''\.terraform/.*''',
+  '''\.git/.*''',
+  '''\.github/workflows/.*''',
+  '''node_modules/.*''',
+  '''vendor/.*''',
+  '''\.tfstate$''',
+  '''\.tfstate\.backup$''',
+]
+
+# Allowlist example/placeholder values
+regexes = [
+  # Example AWS Account IDs (12 digits starting with common test patterns)
+  '''123456789012''',
+  '''111111111111''',
+  '''000000000000''',
+  
+  # Example/placeholder secrets
+  '''example-secret-key''',
+  '''your-secret-here''',
+  '''REPLACE_WITH_YOUR''',
+  '''<YOUR_.*>''',
+  '''placeholder''',
+  
+  # Terraform variable references (not actual secrets)
+  '''var\..*''',
+  '''local\..*''',
+  '''data\..*''',
+  '''module\..*''',
+  
+  # Common documentation patterns
+  '''AKIAIOSFODNN7EXAMPLE''',
+  '''wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY''',
+]
+
+# Allowlist specific commits (if needed)
+commits = []
+
+# Allowlist specific stopwords (case-insensitive)
+stopwords = [
+  "example",
+  "sample",
+  "test",
+  "demo",
+  "placeholder",
+  "your-key-here",
+  "replace-me",
+]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key ID"
+regex = '''(?i)(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+tags = ["aws", "credentials"]
+
+[[rules]]
+id = "aws-secret-key"
+description = "AWS Secret Access Key"
+regex = '''(?i)aws(.{0,20})?['\"][0-9a-zA-Z\/+]{40}['\"]'''
+tags = ["aws", "credentials"]
+
+[[rules]]
+id = "aws-account-id"
+description = "AWS Account ID"
+regex = '''(?i)aws(.{0,20})?account(.{0,20})?['\"]?[0-9]{12}['\"]?'''
+tags = ["aws", "account"]
+
+[[rules]]
+id = "terraform-aws-secret"
+description = "Terraform AWS Secret"
+regex = '''(?i)(aws_secret_access_key|aws_access_key_id)(.{0,20})?=(.{0,20})?['\"][0-9a-zA-Z\/+]{20,}['\"]'''
+tags = ["terraform", "aws", "credentials"]
+
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN (RSA|DSA|EC|OPENSSH|PGP) PRIVATE KEY-----'''
+tags = ["private-key"]
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey|api[_-]?secret)(.{0,20})?['\"][0-9a-zA-Z\-_]{20,}['\"]'''
+tags = ["api", "credentials"]
+
+[[rules]]
+id = "redis-password"
+description = "Redis Password"
+regex = '''(?i)(redis[_-]?password|redis[_-]?pass)(.{0,20})?['\"][^\s'\"]{8,}['\"]'''
+tags = ["redis", "credentials"]
+
+[[rules]]
+id = "database-password"
+description = "Database Password"
+regex = '''(?i)(db[_-]?password|database[_-]?password|mysql[_-]?password|postgres[_-]?password)(.{0,20})?['\"][^\s'\"]{8,}['\"]'''
+tags = ["database", "credentials"]
+
+[[rules]]
+id = "generic-secret"
+description = "Generic Secret"
+regex = '''(?i)(secret|password|passwd|pwd|token)(.{0,20})?['\"][^\s'\"]{16,}['\"]'''
+tags = ["generic", "credentials"]
+

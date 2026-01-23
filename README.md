@@ -1,5 +1,7 @@
 # rdi-cloud-automation
 
+![Secret Scanning](https://github.com/redis/rdi-cloud-automation/actions/workflows/secret-scan.yml/badge.svg)
+
 Terraform modules to configure producer databases and network connectivity for RDI.
 
 ## Examples
@@ -37,3 +39,34 @@ A Lambda function triggered by RDS Events to SNS, which updates an NLB with the 
 ### aws-secret-manager
 
 AWS KMS Key and Secret Manager secret for RDI to authenticate.
+
+## 🔒 Security
+
+This repository uses automated secret scanning to prevent accidental credential leaks:
+
+- **Gitleaks** - Fast regex-based secret detection
+- **TruffleHog** - High-entropy string detection with verification
+- **detect-secrets** - Baseline-based secret scanning
+
+Secret scanning runs automatically on:
+- Every push to main branches
+- Every pull request
+- Weekly scheduled scans
+
+For more information, see:
+- [Security Policy](.github/SECURITY.md)
+- [Secret Scanning Guide](.github/SECRET_SCANNING.md)
+
+### Quick Start - Local Scanning
+
+```bash
+# Install Gitleaks
+brew install gitleaks  # macOS
+
+# Scan before committing
+gitleaks detect --no-git
+
+# Install pre-commit hook
+curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/scripts/pre-commit.py -o .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```

@@ -1,0 +1,143 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Terraform variable files with sensitive data
+*.tfvars
+*.tfvars.json
+!example*.tfvars
+!*.example.tfvars
+
+# Sensitive files
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+*.der
+*.pub
+id_rsa*
+*.ppk
+
+# AWS credentials
+.aws/
+credentials
+config
+
+# Environment variables
+.env
+.env.*
+!.env.example
+*.local
+
+# Secrets and passwords
+secrets/
+secrets.yml
+secrets.yaml
+secrets.json
+*secret*
+*password*
+*credentials*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+.venv
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# SSH keys
+*.pem
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+
+# Certificate files
+*.csr
+*.crt
+*.cer
+*.der
+*.key
+*.p12
+*.pfx
+
+# Kubernetes secrets
+*-secret.yaml
+*-secret.yml
+
+# Ansible vault
+vault-password.txt
+.vault-pass
+
+# Git secrets baseline
+.secrets.baseline
+
+# Local testing
+test-output/
+.test/
+
