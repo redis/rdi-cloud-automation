@@ -43,3 +43,9 @@ variable "db_port" {
   type        = number
 }
 
+variable "allowed_cidr_blocks" {
+  description = "List of CIDR blocks allowed to access the database. WARNING: Default allows access from anywhere (0.0.0.0/0) for testing purposes only. In production, restrict to specific IP ranges."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]  # WARNING: Open to internet - for testing only!
+}
+

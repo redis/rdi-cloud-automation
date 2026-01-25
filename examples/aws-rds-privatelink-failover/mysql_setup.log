@@ -1,0 +1,2 @@
+ERROR 2003 (HY000): Can't connect to MySQL server on 'rdi-rds-mysql-zdravko-6b9d7e723e9c8d11.elb.eu-central-1.amazonaws.com:3306' (60)
+ERROR 2003 (HY000): Can't connect to MySQL server on 'rdi-rds-mysql-zdravko-6b9d7e723e9c8d11.elb.eu-central-1.amazonaws.com:3306' (60)

@@ -11,6 +11,9 @@ resource "aws_rds_cluster" "postgresql" {
   vpc_security_group_ids          = [aws_security_group.producer_sg.id]
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.default.name
   apply_immediately               = true
+
+  # SECURITY: Enable encryption at rest for data protection
+  storage_encrypted = true
 }
 
 resource "aws_rds_cluster_parameter_group" "default" {
