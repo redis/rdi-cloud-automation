@@ -1,7 +1,8 @@
-# Create a Network Load Balancer to route traffic to the EC2 instance
+# Create a Network Load Balancer to route traffic to the database
+# Can be internal (private, for PrivateLink only) or internet-facing (public, for direct access)
 resource "aws_lb" "producer_nlb" {
   name                             = var.identifier
-  internal                         = false
+  internal                         = var.internal
   load_balancer_type               = "network"
   subnets                          = var.subnets
   dns_record_client_routing_policy = "availability_zone_affinity"

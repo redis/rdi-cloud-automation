@@ -47,3 +47,9 @@ variable "security_groups" {
   type        = list(string)
   description = "The list of security groups to create the resources in"
 }
+
+variable "internal" {
+  type        = bool
+  description = "Whether the NLB should be internal (private) or internet-facing (public). Default: true (private)"
+  default     = true
+}

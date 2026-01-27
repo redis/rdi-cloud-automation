@@ -10,7 +10,22 @@ output "secret_arn" {
 
 output "database" {
   value       = "chinook"
-  description = "The name of the Postgres reference database"
+  description = "The name of the reference database"
+}
+
+output "database_engine" {
+  value       = var.db_engine
+  description = "The database engine being used (postgres or mysql)"
+}
+
+output "database_engine_version" {
+  value       = var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].engine_version : null
+  description = "The database engine version (MySQL only, shows latest Aurora MySQL 8.0 version)"
+}
+
+output "database_username" {
+  value       = local.db_username
+  description = "The database username"
 }
 
 output "port" {
@@ -19,11 +34,58 @@ output "port" {
 }
 
 output "password" {
-  value       = random_password.pg_password.result
+  value       = random_password.db_password.result
   sensitive   = true
-  description = "The postgres password. This is not used for RDI setup, only to connect to the DB with psql"
+  description = "The database password. This is not used for RDI setup, only to connect to the DB directly"
 }
 
-output "psql_host" {
-  value = module.privatelink.lb_hostname
+output "db_host" {
+  value       = module.privatelink.lb_hostname
+  description = "The hostname for connecting to the database"
+}
+
+output "rdi_username" {
+  value       = local.rdi_username
+  description = "The username for RDI/Debezium connection (MySQL uses dedicated debezium user, PostgreSQL uses postgres user)"
+}
+
+output "rdi_password" {
+  value       = local.rdi_password
+  sensitive   = true
+  description = "The password for RDI/Debezium connection"
+}
+
+output "rds_proxy_enabled" {
+  value       = var.use_rds_proxy
+  description = "Whether RDS Proxy is enabled (DEPRECATED feature)"
+}
+
+output "rds_proxy_require_tls" {
+  value       = var.use_rds_proxy ? var.rds_proxy_require_tls : null
+  description = "Whether RDS Proxy requires TLS (only if RDS Proxy is enabled)"
+}
+
+output "rds_proxy_endpoint" {
+  value       = var.use_rds_proxy ? aws_db_proxy.rds_proxy[0].endpoint : null
+  description = "The RDS Proxy endpoint (only if RDS Proxy is enabled)"
+}
+
+output "rds_ca_cert_secret_arn" {
+  value       = var.use_rds_proxy && var.rds_proxy_require_tls ? aws_secretsmanager_secret.rds_ca_cert[0].arn : null
+  description = "The ARN of the AWS Secret containing the RDS CA certificate bundle (only if RDS Proxy with TLS is enabled)"
+}
+
+output "actual_db_endpoint" {
+  value       = local.db_endpoint
+  description = "The actual database endpoint being used (RDS Proxy if enabled, otherwise direct RDS endpoint)"
+}
+
+output "nlb_internal" {
+  value       = var.nlb_internal
+  description = "Whether the NLB is internal (private) or internet-facing (public)"
+}
+
+output "nlb_dns_name" {
+  value       = module.privatelink.lb_hostname
+  description = "The DNS name of the NLB (use this to connect directly when nlb_internal=false)"
 }

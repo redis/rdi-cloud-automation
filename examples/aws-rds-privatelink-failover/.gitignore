@@ -6,3 +6,4 @@ userdata.tgz
 scripts
 mysql.log
 *.tfstate.*.backup
+mysql_setup.log

@@ -2,4 +2,4 @@
 
 set -euo pipefail
 
-psql "postgresql://postgres:$(terraform output -raw password)@$(terraform output -raw psql_host)/chinook"
+psql "postgresql://$(terraform output -raw database_username):$(terraform output -raw password)@$(terraform output -raw db_host)/chinook"
