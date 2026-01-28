@@ -69,6 +69,10 @@ resource "aws_db_proxy" "rds_proxy" {
   vpc_subnet_ids         = local.db_module.vpc_public_subnets
   require_tls            = var.rds_proxy_require_tls
 
+  # Use the same security group as RDS to allow NLB health checks
+  # The RDS security group has a "self" ingress rule that allows traffic from resources in the same SG
+  vpc_security_group_ids = [local.db_module.security_group_id]
+
   tags = {
     Name       = "${var.name}-proxy"
     Deprecated = "true"
