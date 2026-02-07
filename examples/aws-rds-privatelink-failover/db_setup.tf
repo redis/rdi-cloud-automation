@@ -62,3 +62,55 @@
 # EOF
 #   }
 # }
+
+# NOTE: The rdi_user is now automatically created in main.tf via the
+# create_sqlserver_rdi_user resource. This happens automatically during terraform apply.
+#
+# Commented out: Optional Chinook sample database setup for SQL Server
+# This requires network access to the RDS instance (nlb_internal = false or VPN/bastion)
+# To load the Chinook sample database, either:
+# 1. Uncomment this resource and run terraform apply (if nlb_internal = false)
+# 2. Run sqlcmd manually from a bastion host or machine with VPC access
+# 3. Use AWS Systems Manager Session Manager to connect to an EC2 instance in the VPC
+#
+# resource "null_resource" "setup_chinook_sqlserver" {
+#   count = var.db_engine == "sqlserver" ? 1 : 0
+#   depends_on = [
+#     module.rdi_quickstart_sqlserver,
+#     module.privatelink,
+#     null_resource.create_sqlserver_rdi_user  # Wait for rdi_user to be created first
+#   ]
+#   provisioner "local-exec" {
+#     command = <<EOF
+# #!/bin/bash
+# set -e
+# mkdir -p scripts
+#
+# # Download Chinook SQL Server database script
+# echo "Downloading Chinook SQL Server database..."
+# curl https://raw.githubusercontent.com/lerocha/chinook-database/master/ChinookDatabase/DataSources/Chinook_SqlServer.sql -o scripts/Chinook_SqlServer.sql
+#
+# # Load Chinook database into SQL Server
+# echo "Loading Chinook database into SQL Server..."
+# sqlcmd -S ${module.privatelink.lb_hostname},${var.port} -U sa -P '${random_password.db_password.result}' -i scripts/Chinook_SqlServer.sql -o sqlserver_setup.log
+#
+# # Enable CDC on the Chinook database
+# echo "Enabling CDC on Chinook database..."
+# sqlcmd -S ${module.privatelink.lb_hostname},${var.port} -U sa -P '${random_password.db_password.result}' -Q "
+# USE Chinook;
+# EXEC sys.sp_cdc_enable_db;
+#
+# -- Grant rdi_user access to Chinook database
+# IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = 'rdi_user')
+# BEGIN
+#     CREATE USER rdi_user FOR LOGIN rdi_user;
+# END
+# ALTER ROLE db_owner ADD MEMBER rdi_user;
+#
+# PRINT 'CDC enabled and rdi_user granted access to Chinook database';
+# "
+#
+# echo "Chinook database loaded and CDC enabled successfully!"
+# EOF
+#   }
+# }

@@ -294,6 +294,61 @@ EOF
   }
 }
 
+# Create the rdi_user in SQL Server with CDC permissions
+# This runs after both the SQL Server instance and NLB are ready
+resource "null_resource" "create_sqlserver_rdi_user" {
+  count = var.db_engine == "sqlserver" ? 1 : 0
+
+  depends_on = [
+    module.rdi_quickstart_sqlserver,
+    module.privatelink
+  ]
+
+  provisioner "local-exec" {
+    command = <<EOF
+#!/bin/bash
+set -e
+
+# Wait for SQL Server to be fully ready
+echo "Waiting for SQL Server instance to be ready..."
+sleep 60
+
+# Create rdi_user with CDC permissions
+echo "Creating rdi_user with CDC permissions..."
+sqlcmd -S ${module.privatelink.lb_hostname},${var.port} -U sa -P '${random_password.db_password.result}' -Q "
+-- Create login and user
+IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = 'rdi_user')
+BEGIN
+    CREATE LOGIN rdi_user WITH PASSWORD = '${random_password.rdi_password.result}';
+END
+
+-- Create user in master database
+USE master;
+IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = 'rdi_user')
+BEGIN
+    CREATE USER rdi_user FOR LOGIN rdi_user;
+END
+
+-- Grant necessary permissions for CDC
+ALTER SERVER ROLE [dbcreator] ADD MEMBER rdi_user;
+GRANT VIEW SERVER STATE TO rdi_user;
+GRANT VIEW ANY DEFINITION TO rdi_user;
+
+PRINT 'RDI user created successfully!';
+"
+
+echo "RDI user created successfully!"
+EOF
+  }
+
+  # Recreate if any of these change
+  triggers = {
+    instance_endpoint = var.db_engine == "sqlserver" ? module.rdi_quickstart_sqlserver[0].rds_endpoint : ""
+    rdi_password      = random_password.rdi_password.result
+    nlb_hostname      = module.privatelink.lb_hostname
+  }
+}
+
 # Create a secret in AWS Secret Manager with the RDI/Debezium credentials
 # Redis Cloud needs these credentials to connect via RDI for Change Data Capture
 module "secret_manager" {

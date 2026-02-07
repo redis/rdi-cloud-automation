@@ -40,7 +40,12 @@ regexes = [
   '''local\..*''',
   '''data\..*''',
   '''module\..*''',
-  
+
+  # Terraform variable interpolations (e.g., PASSWORD = '${random_password.result}')
+  # Matches patterns like: PASSWORD = '${...}' or PASSWORD='${...}'
+  '''(PASSWORD|SECRET|TOKEN|PASSWD|PWD)\s*=\s*['"]\$\{.*?\}['"]''',
+  '''\$\{random_password\..*?\}''',
+
   # Common documentation patterns
   '''AKIAIOSFODNN7EXAMPLE''',
   '''wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY''',
@@ -111,6 +116,17 @@ tags = ["database", "credentials"]
 [[rules]]
 id = "generic-secret"
 description = "Generic Secret"
-regex = '''(?i)(secret|password|passwd|pwd|token)(.{0,20})?['\"][^\s'\"]{16,}['\"]'''
+# Exclude Terraform variable interpolations like '${random_password.result}'
+regex = '''(?i)(secret|password|passwd|pwd|token)(.{0,20})?['\"](?!\$\{)[^\s'\"]{16,}['\"]'''
 tags = ["generic", "credentials"]
+
+  [rules.allowlist]
+  description = "Ignore Terraform variable interpolations"
+  regexes = [
+    '''\$\{random_password\..*?\}''',
+    '''\$\{var\..*?\}''',
+    '''\$\{local\..*?\}''',
+    '''\$\{data\..*?\}''',
+    '''\$\{module\..*?\}''',
+  ]
 
