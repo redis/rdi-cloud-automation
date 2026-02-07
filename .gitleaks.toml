@@ -116,13 +116,17 @@ tags = ["database", "credentials"]
 [[rules]]
 id = "generic-secret"
 description = "Generic Secret"
-# Exclude Terraform variable interpolations like '${random_password.result}'
-regex = '''(?i)(secret|password|passwd|pwd|token)(.{0,20})?['\"](?!\$\{)[^\s'\"]{16,}['\"]'''
+regex = '''(?i)(secret|password|passwd|pwd|token)(.{0,20})?['\"][^\s'\"]{16,}['\"]'''
 tags = ["generic", "credentials"]
 
   [rules.allowlist]
   description = "Ignore Terraform variable interpolations"
   regexes = [
+    '''PASSWORD\s*=\s*['"]\$\{random_password\..*?\}['"]''',
+    '''SECRET\s*=\s*['"]\$\{.*?\}['"]''',
+    '''TOKEN\s*=\s*['"]\$\{.*?\}['"]''',
+    '''PASSWD\s*=\s*['"]\$\{.*?\}['"]''',
+    '''PWD\s*=\s*['"]\$\{.*?\}['"]''',
     '''\$\{random_password\..*?\}''',
     '''\$\{var\..*?\}''',
     '''\$\{local\..*?\}''',
