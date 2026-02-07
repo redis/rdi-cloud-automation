@@ -25,17 +25,22 @@
 #   }
 # }
 
-# Commented out: This requires network access to the private RDS instance
-# To set up the database, either:
-# 1. Run the mysql.sh script from a bastion host or machine with VPC access
-# 2. Use AWS Systems Manager Session Manager to connect to an EC2 instance in the VPC
-# 3. Set up a VPN connection to the VPC
+# NOTE: The debezium user is now automatically created in main.tf via the
+# create_mysql_debezium_user resource. This happens automatically during terraform apply.
+#
+# Commented out: Optional Chinook sample database setup
+# This requires network access to the RDS instance (nlb_internal = false or VPN/bastion)
+# To load the Chinook sample database, either:
+# 1. Uncomment this resource and run terraform apply (if nlb_internal = false)
+# 2. Run the mysql.sh script manually from a bastion host or machine with VPC access
+# 3. Use AWS Systems Manager Session Manager to connect to an EC2 instance in the VPC
 #
 # resource "null_resource" "setup_chinook_mysql" {
 #   count = var.db_engine == "mysql" ? 1 : 0
 #   depends_on = [
 #     module.rdi_quickstart_mysql,
-#     module.rds_lambda
+#     module.privatelink,
+#     null_resource.create_mysql_debezium_user  # Wait for debezium user to be created first
 #   ]
 #   provisioner "local-exec" {
 #     environment = {
@@ -43,21 +48,17 @@
 #     }
 #     command = <<EOF
 # #!/bin/sh
-# set -x
+# set -e
 # mkdir -p scripts
 #
-# # Download and load Chinook database
+# # Download and load Chinook sample database
+# echo "Downloading Chinook MySQL database..."
 # curl https://raw.githubusercontent.com/lerocha/chinook-database/master/ChinookDatabase/DataSources/Chinook_MySql.sql -o scripts/Chinook_MySql.sql
+#
+# echo "Loading Chinook database into MySQL..."
 # mysql -h ${module.privatelink.lb_hostname} -u admin -P ${var.port} chinook < scripts/Chinook_MySql.sql > mysql_setup.log 2>&1
 #
-# # Create Debezium user for RDI with required grants
-# mysql -h ${module.privatelink.lb_hostname} -u admin -P ${var.port} -e "
-# CREATE USER IF NOT EXISTS 'debezium'@'%' IDENTIFIED BY '${random_password.debezium_password.result}';
-# GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT, LOCK TABLES ON *.* TO 'debezium'@'%';
-# FLUSH PRIVILEGES;
-# " >> mysql_setup.log 2>&1
-#
-# echo "Debezium user created successfully"
+# echo "Chinook database loaded successfully!"
 # EOF
 #   }
 # }
