@@ -120,8 +120,9 @@ regex = '''(?i)(secret|password|passwd|pwd|token)(.{0,20})?['\"][^\s'\"]{16,}['\
 tags = ["generic", "credentials"]
 
   [rules.allowlist]
-  description = "Ignore Terraform variable interpolations"
+  description = "Ignore Terraform variable interpolations and documentation placeholders"
   regexes = [
+    # Terraform interpolations
     '''PASSWORD\s*=\s*['"]\$\{random_password\..*?\}['"]''',
     '''SECRET\s*=\s*['"]\$\{.*?\}['"]''',
     '''TOKEN\s*=\s*['"]\$\{.*?\}['"]''',
@@ -132,5 +133,9 @@ tags = ["generic", "credentials"]
     '''\$\{local\..*?\}''',
     '''\$\{data\..*?\}''',
     '''\$\{module\..*?\}''',
+    # Documentation placeholders
+    '''PASSWORD\s*=\s*['"]<[^>]+>['"]''',
+    '''secrets_arn\s*=\s*['"](arn:aws:[^"']+YOUR_[^"']+)['"]''',
+    '''WITH\s+PASSWORD\s*=\s*['"]<[^>]+>['"]''',
   ]
 

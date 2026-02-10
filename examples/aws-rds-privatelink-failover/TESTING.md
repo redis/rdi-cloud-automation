@@ -6,7 +6,7 @@ This guide will help you test the new Aurora MySQL implementation alongside the 
 
 ### Testing PostgreSQL (Existing)
 
-1. Configure `example.tfvars`:
+1. Configure the appropriate tfvars file (`example-postgres.tfvars`, `example-mysql.tfvars`, or `example-sqlserver.tfvars`):
 ```hcl
 region                = "us-east-1"
 azs                   = ["use1-az2", "use1-az4", "use1-az6"]
@@ -21,7 +21,7 @@ db_engine             = "postgres"
 ```bash
 cd examples/aws-rds-privatelink-failover
 terraform init
-terraform apply -var-file example.tfvars
+terraform apply -var-file example-postgres.tfvars
 ```
 
 3. Connect:
@@ -130,8 +130,11 @@ If you can't connect to MySQL, ensure:
 
 If switching between engines in the same directory:
 ```bash
-terraform destroy -var-file example.tfvars
+# Destroy PostgreSQL
+terraform destroy -var-file example-postgres.tfvars
 rm -rf .terraform terraform.tfstate*
+
+# Deploy MySQL
 terraform init
 terraform apply -var-file example-mysql.tfvars
 ```
