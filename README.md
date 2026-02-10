@@ -195,13 +195,20 @@ For Aurora clusters (PostgreSQL and MySQL):
 
 ### 1. Quick Testing with Sample Data
 
-Deploy PostgreSQL with Chinook sample database for immediate testing:
+Deploy PostgreSQL and manually load Chinook sample database:
 
 ```bash
 cd examples/aws-rds-privatelink-failover
+
+# Deploy infrastructure
 terraform apply -var-file example-postgres.tfvars
-# Chinook database is automatically created
-# Connect and test: ./connect.sh
+
+# Load sample data (requires network access to RDS)
+# Option A: If nlb_internal = false (public NLB)
+./psql.sh  # Then manually load Chinook SQL
+
+# Option B: From bastion host or VPN connection
+# See example README for detailed setup instructions
 ```
 
 ### 2. Production MySQL with CDC

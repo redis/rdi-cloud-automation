@@ -10,7 +10,7 @@ This example deploys a complete RDS infrastructure with:
 - ✅ **High availability:** Multi-AZ deployment with automatic failover
 - ✅ **Lambda-based failover:** Automatically updates NLB targets during RDS failover
 - ✅ **Secure connectivity:** AWS PrivateLink for private VPC-to-VPC connections
-- ✅ **Optional sample data:** Chinook database for testing
+- ✅ **Optional sample data:** Chinook database (manual setup required)
 
 ### Supported Database Engines
 
@@ -161,6 +161,77 @@ mysql -h <nlb_dns_name> -P 3306 -u debezium -p
 ```bash
 sqlcmd -S <nlb_dns_name>,1433 -U rdi_user -P '<password>' -d master
 ```
+
+## 📊 Sample Data Setup (Optional)
+
+The Chinook sample database setup is **commented out by default** in `db_setup.tf` because it requires network access to the private RDS instance.
+
+### Why It's Commented Out
+
+The `null_resource` provisioners in `db_setup.tf` need to connect to the RDS instance to load data. This requires:
+- Either `nlb_internal = false` (public NLB) for direct access
+- Or VPN/bastion host access to the VPC
+
+### Setup Options
+
+#### Option 1: Public NLB (Testing Only)
+
+1. Set `nlb_internal = false` in your tfvars file
+2. Uncomment the appropriate resource in `db_setup.tf`:
+   - `null_resource.setup_chinook_postgres` for PostgreSQL
+   - `null_resource.setup_chinook_mysql` for MySQL
+   - `null_resource.setup_chinook_sqlserver` for SQL Server
+3. Run `terraform apply -var-file example-<engine>.tfvars`
+
+**Security note:** Only use public NLB for testing. Use private NLB for production.
+
+#### Option 2: Manual Setup from Bastion Host
+
+1. Deploy infrastructure with `nlb_internal = true` (default)
+2. Set up a bastion host or VPN connection to the VPC
+3. From the bastion host, download and load Chinook:
+
+**PostgreSQL:**
+```bash
+curl https://raw.githubusercontent.com/Redislabs-Solution-Architects/rdi-quickstart-postgres/refs/heads/main/scripts/Chinook_PostgreSql.sql -o Chinook_PostgreSql.sql
+psql -h <nlb_dns_name> -p 5432 -U postgres -d chinook -f Chinook_PostgreSql.sql
+```
+
+**MySQL:**
+```bash
+curl https://raw.githubusercontent.com/lerocha/chinook-database/master/ChinookDatabase/DataSources/Chinook_MySql.sql -o Chinook_MySql.sql
+mysql -h <nlb_dns_name> -P 3306 -u admin chinook < Chinook_MySql.sql
+```
+
+**SQL Server:**
+```bash
+curl https://raw.githubusercontent.com/lerocha/chinook-database/master/ChinookDatabase/DataSources/Chinook_SqlServer.sql -o Chinook_SqlServer.sql
+sqlcmd -S <nlb_dns_name>,1433 -U sa -P '<password>' -i Chinook_SqlServer.sql
+
+# Enable CDC on Chinook database
+sqlcmd -S <nlb_dns_name>,1433 -U sa -P '<password>' -Q "USE Chinook; EXEC sys.sp_cdc_enable_db;"
+```
+
+#### Option 3: AWS Systems Manager Session Manager
+
+1. Launch an EC2 instance in the same VPC as RDS
+2. Use AWS Systems Manager Session Manager to connect
+3. Install database client tools on the EC2 instance
+4. Follow the manual setup commands from Option 2
+
+### What Gets Created
+
+When Chinook is loaded, you get:
+- **11 tables:** Album, Artist, Customer, Employee, Genre, Invoice, InvoiceLine, MediaType, Playlist, PlaylistTrack, Track
+- **Sample data:** ~15,000 rows of music store data
+- **Relationships:** Foreign keys between tables for testing CDC
+
+### Alternative: Use Your Own Data
+
+Instead of Chinook, you can load your own data:
+1. Connect using the connection scripts (`./psql.sh`, `./mysql.sh`, etc.)
+2. Create your own tables and insert data
+3. Configure RDI to replicate your tables
 
 ## 🔐 CDC User Management
 
@@ -351,6 +422,24 @@ module "rdi_quickstart_sqlserver" {
 ```
 
 This design is **scalable** for future database engines and keeps the codebase clean.
+
+### What's Automatic vs Manual
+
+**Automatic (during `terraform apply`):**
+- ✅ VPC, subnets, security groups
+- ✅ RDS database cluster/instance
+- ✅ Network Load Balancer (NLB)
+- ✅ AWS PrivateLink endpoint
+- ✅ Lambda function for failover handling
+- ✅ AWS Secrets Manager secrets
+- ✅ CDC user creation (MySQL `debezium`, SQL Server `rdi_user`)
+
+**Manual (requires network access):**
+- ⚠️ Chinook sample database loading (see "Sample Data Setup" section)
+- ⚠️ Custom database/table creation
+- ⚠️ Data loading for testing
+
+**Why manual?** The Terraform execution environment typically doesn't have network access to the private RDS instance. Sample data loading requires either a public NLB (testing only), VPN connection, or bastion host.
 
 ## 🧪 Testing
 
