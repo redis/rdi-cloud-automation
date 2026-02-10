@@ -15,12 +15,16 @@ output "database" {
 
 output "database_engine" {
   value       = var.db_engine
-  description = "The database engine being used (postgres or mysql)"
+  description = "The database engine being used (postgres, mysql, or sqlserver)"
 }
 
 output "database_engine_version" {
-  value       = var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].engine_version : null
-  description = "The database engine version (MySQL only, shows latest Aurora MySQL 8.0 version)"
+  value = (
+    var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].engine_version :
+    var.db_engine == "sqlserver" ? module.rdi_quickstart_sqlserver[0].engine_version :
+    null
+  )
+  description = "The database engine version (MySQL and SQL Server only, shows latest version)"
 }
 
 output "database_username" {
@@ -46,13 +50,13 @@ output "db_host" {
 
 output "rdi_username" {
   value       = local.rdi_username
-  description = "The username for RDI/Debezium connection (MySQL uses dedicated debezium user, PostgreSQL uses postgres user)"
+  description = "The username for RDI/CDC connection (MySQL: debezium, PostgreSQL: postgres, SQL Server: rdi_user)"
 }
 
 output "rdi_password" {
   value       = local.rdi_password
   sensitive   = true
-  description = "The password for RDI/Debezium connection"
+  description = "The password for RDI/CDC connection"
 }
 
 output "rds_proxy_enabled" {

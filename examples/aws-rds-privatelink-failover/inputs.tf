@@ -31,12 +31,12 @@ variable "azs" {
 }
 
 variable "db_engine" {
-  description = "Database engine to use: 'postgres' or 'mysql'"
+  description = "Database engine to use: 'postgres', 'mysql', or 'sqlserver'"
   type        = string
   default     = "postgres"
   validation {
-    condition     = contains(["postgres", "mysql"], var.db_engine)
-    error_message = "db_engine must be either 'postgres' or 'mysql'"
+    condition     = contains(["postgres", "mysql", "sqlserver"], var.db_engine)
+    error_message = "db_engine must be one of: 'postgres', 'mysql', 'sqlserver'"
   }
 }
 

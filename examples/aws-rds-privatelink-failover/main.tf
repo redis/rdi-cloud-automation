@@ -19,7 +19,7 @@ provider "aws" {
   profile = var.aws_profile
 }
 
-# Create an RDI quickstart Postgres database on RDS
+# Create an RDI quickstart Postgres database on Aurora
 module "rdi_quickstart_postgres" {
   count  = var.db_engine == "postgres" ? 1 : 0
   source = "../../modules/aws-rds-chinook"
@@ -30,7 +30,7 @@ module "rdi_quickstart_postgres" {
   azs         = var.azs
 }
 
-# Create an RDI quickstart MySQL database on RDS
+# Create an RDI quickstart MySQL database on Aurora
 module "rdi_quickstart_mysql" {
   count  = var.db_engine == "mysql" ? 1 : 0
   source = "../../modules/aws-rds-mysql-chinook"
@@ -41,13 +41,46 @@ module "rdi_quickstart_mysql" {
   azs         = var.azs
 }
 
-locals {
-  db_module   = var.db_engine == "postgres" ? module.rdi_quickstart_postgres[0] : module.rdi_quickstart_mysql[0]
-  db_username = var.db_engine == "postgres" ? "postgres" : "admin"
+# Create an RDI quickstart SQL Server database on RDS
+module "rdi_quickstart_sqlserver" {
+  count  = var.db_engine == "sqlserver" ? 1 : 0
+  source = "../../modules/aws-rds-sqlserver-chinook"
 
-  # RDI/Debezium credentials (what Redis Cloud needs)
-  rdi_username = var.db_engine == "mysql" ? "debezium" : local.db_username
-  rdi_password = var.db_engine == "mysql" ? random_password.debezium_password.result : random_password.db_password.result
+  identifier  = var.name
+  db_password = random_password.db_password.result
+  db_port     = var.port
+  azs         = var.azs
+}
+
+locals {
+  # Database engine configurations - map-based approach for clarity
+  # Only reference the module that actually exists (count=1) to avoid "invalid index" errors
+
+  # Module reference - only one will exist based on db_engine
+  db_module = (
+    var.db_engine == "postgres" ? module.rdi_quickstart_postgres[0] :
+    var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0] :
+    module.rdi_quickstart_sqlserver[0]
+  )
+
+  # Username mappings
+  db_username = {
+    postgres  = "postgres"
+    mysql     = "admin"
+    sqlserver = "sa"
+  }[var.db_engine]
+
+  rdi_username = {
+    postgres  = "postgres"
+    mysql     = "debezium"
+    sqlserver = "rdi_user"
+  }[var.db_engine]
+
+  rdi_password = {
+    postgres  = random_password.db_password.result
+    mysql     = random_password.debezium_password.result
+    sqlserver = random_password.rdi_password.result
+  }[var.db_engine]
 
   # When RDS Proxy is enabled, use proxy endpoint; otherwise use RDS endpoint
   db_endpoint = var.use_rds_proxy ? aws_db_proxy.rds_proxy[0].endpoint : local.db_module.rds_endpoint
@@ -58,8 +91,15 @@ locals {
 resource "aws_db_proxy" "rds_proxy" {
   count = var.use_rds_proxy ? 1 : 0
 
-  name                   = "${var.name}-proxy"
-  engine_family          = var.db_engine == "postgres" ? "POSTGRESQL" : "MYSQL"
+  name = "${var.name}-proxy"
+
+  # Engine family mapping - cleaner than nested ternaries
+  engine_family = {
+    postgres  = "POSTGRESQL"
+    mysql     = "MYSQL"
+    sqlserver = "SQLSERVER"
+  }[var.db_engine]
+
   auth {
     auth_scheme = "SECRETS"
     iam_auth    = "DISABLED"
@@ -69,12 +109,18 @@ resource "aws_db_proxy" "rds_proxy" {
   vpc_subnet_ids         = local.db_module.vpc_public_subnets
   require_tls            = var.rds_proxy_require_tls
 
+  # Use the same security group as RDS to allow NLB health checks
+  # The RDS security group has a "self" ingress rule that allows traffic from resources in the same SG
+  vpc_security_group_ids = [local.db_module.security_group_id]
+
   tags = {
     Name       = "${var.name}-proxy"
     Deprecated = "true"
   }
 
-  depends_on = [module.rdi_quickstart_postgres, module.rdi_quickstart_mysql, module.secret_manager]
+  # Only wait for secret_manager - the cluster identifier is available immediately
+  # No need to wait for the full RDS cluster/instances to be created
+  depends_on = [module.secret_manager]
 }
 
 resource "aws_db_proxy_default_target_group" "rds_proxy_tg" {
@@ -141,7 +187,7 @@ resource "aws_iam_role_policy" "rds_proxy_policy" {
 module "rds_lambda" {
   count      = var.use_rds_proxy ? 0 : 1
   source     = "../../modules/aws-rds-lambda"
-  depends_on = [module.rdi_quickstart_postgres, module.rdi_quickstart_mysql]
+  depends_on = [module.rdi_quickstart_postgres, module.rdi_quickstart_mysql, module.rdi_quickstart_sqlserver]
 
   identifier             = var.name
   elb_tg_arn             = module.privatelink.tg_arn
@@ -202,6 +248,104 @@ EOF
   triggers = {
     proxy_endpoint = var.use_rds_proxy ? aws_db_proxy.rds_proxy[0].endpoint : ""
     tg_arn         = module.privatelink.tg_arn
+  }
+}
+
+# Create the debezium user in MySQL with CDC permissions
+# This runs after both the MySQL cluster and NLB are ready
+resource "null_resource" "create_mysql_debezium_user" {
+  count = var.db_engine == "mysql" ? 1 : 0
+
+  depends_on = [
+    module.rdi_quickstart_mysql,
+    module.privatelink
+  ]
+
+  provisioner "local-exec" {
+    environment = {
+      MYSQL_PWD = nonsensitive(random_password.db_password.result)
+    }
+    command = <<EOF
+#!/bin/bash
+set -e
+
+# Wait for MySQL to be fully ready (sometimes takes a moment after instance is available)
+echo "Waiting for MySQL cluster to be ready..."
+sleep 30
+
+# Create debezium user with CDC permissions
+echo "Creating debezium user with CDC permissions..."
+mysql -h ${module.privatelink.lb_hostname} -u admin -P ${var.port} <<SQL
+CREATE USER IF NOT EXISTS 'debezium'@'%' IDENTIFIED BY '${random_password.debezium_password.result}';
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT, LOCK TABLES ON *.* TO 'debezium'@'%';
+FLUSH PRIVILEGES;
+SELECT User, Host FROM mysql.user WHERE User = 'debezium';
+SQL
+
+echo "Debezium user created successfully!"
+EOF
+  }
+
+  # Recreate if any of these change
+  triggers = {
+    cluster_endpoint  = var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].rds_endpoint : ""
+    debezium_password = random_password.debezium_password.result
+    nlb_hostname      = module.privatelink.lb_hostname
+  }
+}
+
+# Create the rdi_user in SQL Server with CDC permissions
+# This runs after both the SQL Server instance and NLB are ready
+resource "null_resource" "create_sqlserver_rdi_user" {
+  count = var.db_engine == "sqlserver" ? 1 : 0
+
+  depends_on = [
+    module.rdi_quickstart_sqlserver,
+    module.privatelink
+  ]
+
+  provisioner "local-exec" {
+    command = <<EOF
+#!/bin/bash
+set -e
+
+# Wait for SQL Server to be fully ready
+echo "Waiting for SQL Server instance to be ready..."
+sleep 60
+
+# Create rdi_user with CDC permissions
+echo "Creating rdi_user with CDC permissions..."
+sqlcmd -S ${module.privatelink.lb_hostname},${var.port} -U sa -P '${random_password.db_password.result}' -Q "
+-- Create login and user
+IF NOT EXISTS (SELECT * FROM sys.server_principals WHERE name = 'rdi_user')
+BEGIN
+    CREATE LOGIN rdi_user WITH PASSWORD = '${random_password.rdi_password.result}';
+END
+
+-- Create user in master database
+USE master;
+IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = 'rdi_user')
+BEGIN
+    CREATE USER rdi_user FOR LOGIN rdi_user;
+END
+
+-- Grant necessary permissions for CDC
+ALTER SERVER ROLE [dbcreator] ADD MEMBER rdi_user;
+GRANT VIEW SERVER STATE TO rdi_user;
+GRANT VIEW ANY DEFINITION TO rdi_user;
+
+PRINT 'RDI user created successfully!';
+"
+
+echo "RDI user created successfully!"
+EOF
+  }
+
+  # Recreate if any of these change
+  triggers = {
+    instance_endpoint = var.db_engine == "sqlserver" ? module.rdi_quickstart_sqlserver[0].rds_endpoint : ""
+    rdi_password      = random_password.rdi_password.result
+    nlb_hostname      = module.privatelink.lb_hostname
   }
 }
 
@@ -272,6 +416,11 @@ resource "random_password" "db_password" {
 }
 
 resource "random_password" "debezium_password" {
+  length  = 16
+  special = false
+}
+
+resource "random_password" "rdi_password" {
   length  = 16
   special = false
 }
