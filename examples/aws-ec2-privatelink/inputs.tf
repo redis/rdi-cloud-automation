@@ -34,3 +34,9 @@ variable "ssh_key_name" {
 variable "azs" {
   type = list(string)
 }
+
+variable "aws_profile" {
+  description = "AWS CLI profile to use for authentication (optional, can also use AWS_PROFILE env var)"
+  type        = string
+  default     = null
+}

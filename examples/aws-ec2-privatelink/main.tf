@@ -15,7 +15,8 @@ terraform {
 
 provider "aws" {
   # Configure the region for the resources
-  region = var.region
+  region  = var.region
+  profile = var.aws_profile
 }
 
 # Create an RDI quickstart Postgres database on an EC2 instance
