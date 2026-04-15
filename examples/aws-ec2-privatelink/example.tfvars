@@ -4,4 +4,3 @@ port                  = 5432
 name                  = "redis-rdi-zdravko"
 redis_secrets_arn     = "arn:aws:iam::148761665361:role/redis-data-pipeline-secrets-role"
 redis_privatelink_arn = "arn:aws:iam::148761665361:role/redis-data-pipeline"
-aws_profile           = "dev-rdi"
