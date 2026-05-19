@@ -72,10 +72,14 @@ The `modules` directory contains reusable Terraform modules which can be compose
 
 | Module | Description | Database Type | Use Case |
 |--------|-------------|---------------|----------|
+| **aws-rdi-network** | Shared VPC + public + database subnets | Networking | Foundation for the multi-DB example |
+| **aws-rdi-database** | Engine-aware RDS module covering all six supported engines | Aurora PG / MySQL / standalone Postgres / MySQL / Oracle / SQL Server | Multi-DB deployments (used by `aws-rds-multi-db`) |
 | **aws-rdi-quickstart-postgres** | VPC and EC2 instance with PostgreSQL | PostgreSQL on EC2 | Quick testing and development |
 | **aws-rds-chinook** | Aurora PostgreSQL RDS cluster | Aurora PostgreSQL | Production PostgreSQL with HA |
 | **aws-rds-mysql-chinook** | Aurora MySQL RDS cluster | Aurora MySQL 8.0 | Production MySQL with HA |
 | **aws-rds-sqlserver-chinook** | RDS SQL Server instance | SQL Server SE 2022 | Production SQL Server with HA |
+
+> **TODO:** `aws-rdi-database` supersedes the three `*-chinook` modules — it covers the same three engines plus standalone RDS Postgres / MySQL / Oracle, and is parameterized by a single `engine` discriminator. The chinook modules remain only because the legacy `examples/aws-rds-privatelink-failover` example still depends on them. Migrate that example to `aws-rdi-network` + `aws-rdi-database`, then delete `aws-rds-chinook`, `aws-rds-mysql-chinook`, and `aws-rds-sqlserver-chinook`.
 
 ### Infrastructure Modules
 
