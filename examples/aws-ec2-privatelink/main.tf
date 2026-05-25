@@ -45,7 +45,7 @@ module "privatelink" {
   allowed_principals = [var.redis_privatelink_arn]
 }
 
-# Create a secret in AWS Secret Manager with the database credentials
+# Create a secret in AWS Secret Manager with the Snowflake credentials
 module "secret_manager" {
   source = "../../modules/aws-secret-manager"
 
@@ -53,8 +53,14 @@ module "secret_manager" {
   # Otherwise running multiple apply-destroy cycles will fail because of the names conflicting.
   identifier         = "${var.name}-${random_id.secret_suffix.hex}"
   allowed_principals = [var.redis_secrets_arn]
-  username           = "postgres"
-  password           = random_password.pg_password.result
+  username           = var.snowflake_username
+  password           = var.snowflake_password
+  private_key        = var.snowflake_private_key
+  ca_cert            = local.mongodb_ca_cert
+}
+
+locals {
+  mongodb_ca_cert = fileexists("${path.module}/mongodb-atlas-ca.pem") ? file("${path.module}/mongodb-atlas-ca.pem") : null
 }
 
 resource "random_id" "secret_suffix" {

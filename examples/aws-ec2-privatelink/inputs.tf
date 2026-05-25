@@ -40,3 +40,22 @@ variable "aws_profile" {
   type        = string
   default     = null
 }
+
+variable "snowflake_username" {
+  description = "Snowflake login name / username"
+  type        = string
+}
+
+variable "snowflake_password" {
+  description = "Snowflake password (included in credentials secret for validation)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "snowflake_private_key" {
+  description = "PEM-encoded PKCS8 private key for Snowflake key-pair authentication"
+  type        = string
+  sensitive   = true
+}
+

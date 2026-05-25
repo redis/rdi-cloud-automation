@@ -5,7 +5,12 @@ output "vpc_endpoint_service_name" {
 
 output "secret_arn" {
   value       = module.secret_manager.secret_arn
-  description = "The Secret Manager secret ARN, to be configured in Redis Cloud"
+  description = "The Secret Manager secret ARN for Snowflake credentials (username), to be configured in Redis Cloud as secretArns.credentials"
+}
+
+output "private_key_secret_arn" {
+  value       = nonsensitive(module.secret_manager.private_key_secret_arn)
+  description = "The Secret Manager secret ARN for the Snowflake private key, to be configured in Redis Cloud as secretArns.mtlsKey"
 }
 
 output "database" {
@@ -18,14 +23,14 @@ output "port" {
   description = "The port for the NLB"
 }
 
-output "password" {
-  value       = random_password.pg_password.result
-  sensitive   = true
-  description = "The postgres password. This is not used for RDI setup, only to connect to the DB with psql"
-}
-
 output "ec2_instance_hostname" {
   value       = module.rdi_quickstart_postgres.instance_hostname
   sensitive   = true
   description = "The postgres instance hostname. This is not used for RDI setup, only to connect to the DB with psql"
+}
+
+output "password" {
+  value       = random_password.pg_password.result
+  sensitive   = true
+  description = "The postgres password. This is not used for RDI setup, only to connect to the DB with psql"
 }
