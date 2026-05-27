@@ -30,6 +30,17 @@ resource "aws_security_group" "this" {
     }
   }
 
+  dynamic "ingress" {
+    for_each = length(var.client_security_group_ids) > 0 ? [1] : []
+    content {
+      description     = "In-VPC client (bastion) access"
+      from_port       = local.port
+      to_port         = local.port
+      protocol        = "tcp"
+      security_groups = var.client_security_group_ids
+    }
+  }
+
   tags = {
     Name = var.identifier
   }

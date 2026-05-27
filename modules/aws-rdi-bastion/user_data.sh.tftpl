@@ -1,0 +1,112 @@
+#!/bin/bash
+# Bastion bootstrap. Installs DB clients and ops scripts.
+#
+# Order matters: SSH user + password auth are configured FIRST so a failure in
+# the later package-install phase still leaves the box reachable.
+set -eux
+exec > >(tee /var/log/user-data.log) 2>&1
+
+################################################################################
+# Phase 1 - SSH access (do this first to avoid getting locked out on errors).
+################################################################################
+
+if ! id dev >/dev/null 2>&1; then
+  useradd -m -s /bin/bash dev
+fi
+echo "dev:${ssh_password}" | chpasswd
+
+# Passwordless sudo for the shared dev user. Acceptable for a dev jump box
+# where the SSH password is already the auth gate; flip to a password-prompt
+# pattern (just `usermod -aG sudo dev`) if you want stricter separation.
+echo 'dev ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/dev
+chmod 0440 /etc/sudoers.d/dev
+
+# Allow password auth in both the main config and any *.conf drop-ins
+# (Ubuntu 24.04 ships /etc/ssh/sshd_config.d/60-cloudimg-settings.conf with
+# `PasswordAuthentication no`).
+sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+if [ -d /etc/ssh/sshd_config.d ]; then
+  for f in /etc/ssh/sshd_config.d/*.conf; do
+    [ -f "$f" ] && sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' "$f"
+  done
+fi
+systemctl restart ssh
+
+################################################################################
+# Phase 2 - DB clients (apt + Microsoft + Oracle).
+################################################################################
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y curl gnupg ca-certificates unzip jq make mariadb-client postgresql-client libaio1t64
+
+# AWS CLI v2 (Ubuntu 24.04 dropped the apt 'awscli' v1 package).
+curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+unzip -q /tmp/awscliv2.zip -d /tmp
+/tmp/aws/install
+rm -rf /tmp/aws /tmp/awscliv2.zip
+
+# Microsoft SQL Server tools (sqlcmd).
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main" \
+  > /etc/apt/sources.list.d/mssql-release.list
+apt-get update
+ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
+echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' > /etc/profile.d/mssql.sh
+chmod +x /etc/profile.d/mssql.sh
+
+# Oracle Instant Client (basic + sqlplus). Pinned 21.13 - stable LTS.
+# Ubuntu 24.04 renamed libaio1 -> libaio1t64 (time_t transition), so the shared
+# object is /lib/x86_64-linux-gnu/libaio.so.1t64. Oracle's sqlplus is hardcoded
+# to dlopen libaio.so.1, so symlink the old name to the new one.
+ln -sf /lib/x86_64-linux-gnu/libaio.so.1t64 /lib/x86_64-linux-gnu/libaio.so.1
+
+mkdir -p /opt/oracle && cd /opt/oracle
+curl -fsSLO https://download.oracle.com/otn_software/linux/instantclient/2113000/instantclient-basic-linux.x64-21.13.0.0.0dbru.zip
+curl -fsSLO https://download.oracle.com/otn_software/linux/instantclient/2113000/instantclient-sqlplus-linux.x64-21.13.0.0.0dbru.zip
+unzip -o instantclient-basic-linux.x64-21.13.0.0.0dbru.zip
+unzip -o instantclient-sqlplus-linux.x64-21.13.0.0.0dbru.zip
+echo '/opt/oracle/instantclient_21_13' > /etc/ld.so.conf.d/oracle.conf
+ldconfig
+echo 'export PATH="$PATH:/opt/oracle/instantclient_21_13"' > /etc/profile.d/oracle.sh
+chmod +x /etc/profile.d/oracle.sh
+
+################################################################################
+# Phase 3 - deployment context + ops scripts.
+################################################################################
+
+cat > /etc/profile.d/rdi-tools.sh <<RDI_ENV
+export RDI_PREFIX='${prefix}'
+export AWS_DEFAULT_REGION='${aws_region}'
+RDI_ENV
+chmod +x /etc/profile.d/rdi-tools.sh
+
+mkdir -p /opt/rdi-tools/updates /opt/rdi-tools/resets
+
+# All scripts (db-shell.sh, Makefile, updates/*.sql, resets/*.sql) are bundled
+# into a single base64+gzip JSON blob by terraform and extracted here.
+# This keeps us under EC2's 16 KB user_data limit.
+echo '${scripts_archive}' | base64 -d | gunzip | python3 -c '
+import json, os, sys
+for path, content in json.load(sys.stdin).items():
+    os.makedirs(os.path.dirname(path) or "/", exist_ok=True)
+    with open(path, "w") as f:
+        f.write(content)
+'
+chmod +x /opt/rdi-tools/db-shell.sh
+chown -R dev:dev /opt/rdi-tools
+
+# Drop into /opt/rdi-tools on every shell start (login or interactive).
+# Two layers because login-vs-interactive shell rules vary on Ubuntu 24.04:
+#   /etc/profile.d/* runs for login shells (e.g. ssh)
+#   ~/.bashrc runs for interactive non-login shells (e.g. sub-shells)
+cat > /etc/profile.d/zz-rdi-cd.sh <<'CD_EOF'
+# Auto-cd into the ops tools directory for interactive shells.
+if [[ $- == *i* ]] && [[ "$$PWD" == "$$HOME" ]]; then
+  cd /opt/rdi-tools 2>/dev/null || true
+fi
+CD_EOF
+chmod +x /etc/profile.d/zz-rdi-cd.sh
+echo 'cd /opt/rdi-tools 2>/dev/null || true' >> /home/dev/.bashrc
+
+echo "bastion ready"

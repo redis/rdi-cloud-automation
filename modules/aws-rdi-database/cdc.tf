@@ -36,7 +36,10 @@ resource "null_resource" "create_rdi_user_mysql" {
       sleep 30
       mysql -h ${module.privatelink.lb_hostname} -u ${local.cfg.master_username} -P ${local.port} <<SQL
       CREATE USER IF NOT EXISTS '${local.cfg.rdi_username}'@'%' IDENTIFIED BY '${local.rdi_password}';
+      -- CDC privileges (server-wide).
       GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT, LOCK TABLES ON *.* TO '${local.cfg.rdi_username}'@'%';
+      -- Full read+write+DDL on the deployment's own database so update-db / reset-db scripts work.
+      GRANT ALL PRIVILEGES ON \`${local.database_name}\`.* TO '${local.cfg.rdi_username}'@'%';
       FLUSH PRIVILEGES;
       SQL
       echo "[${var.identifier}] ${local.cfg.rdi_username} user ready."

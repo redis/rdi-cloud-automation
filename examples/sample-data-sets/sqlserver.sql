@@ -11,6 +11,23 @@ GO
 USE inventory;
 GO
 
+-- The CDC user (rdi_user) is created at the server level by the CDC user
+-- null_resource, before `inventory` exists. Map it into this database here.
+-- db_owner gives data r/w + DDL + role management so the bastion's
+-- `make reset-db` can re-run this script as rdi_user without permission errors.
+IF NOT EXISTS (SELECT * FROM sys.database_principals WHERE name = 'rdi_user')
+  CREATE USER rdi_user FOR LOGIN rdi_user;
+GO
+ALTER ROLE db_owner ADD MEMBER rdi_user;
+GO
+
+-- Drop in reverse FK order so the script is idempotent (can be re-run).
+DROP TABLE IF EXISTS dbo.orders;
+DROP TABLE IF EXISTS dbo.addresses;
+DROP TABLE IF EXISTS dbo.products;
+DROP TABLE IF EXISTS dbo.customers;
+GO
+
 CREATE TABLE customers (
   id         INT          IDENTITY(1005, 1) NOT NULL PRIMARY KEY,
   first_name VARCHAR(255) NOT NULL,

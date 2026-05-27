@@ -131,6 +131,12 @@ locals {
   instance_class = coalesce(var.instance_class, local.cfg.default_instance_class)
   is_aurora      = local.cfg.type == "aurora"
 
+  redis_secrets_arns = (
+    var.redis_secrets_arn == null ? [] :
+    can(tolist(var.redis_secrets_arn)) ? [for arn in tolist(var.redis_secrets_arn) : tostring(arn)] :
+    [tostring(var.redis_secrets_arn)]
+  )
+
   # Caller can override the engine's default database name (e.g. set "inventory" for MySQL).
   # SQL Server doesn't accept db_name at creation time, so its default is null and shouldn't be overridden.
   database_name = var.database_name != null ? var.database_name : local.cfg.default_database_name

@@ -50,7 +50,7 @@ module "secret" {
   source = "../aws-secret-manager"
 
   identifier         = "${var.identifier}-${random_id.secret_suffix.hex}"
-  allowed_principals = var.redis_secrets_arn == null ? [] : [var.redis_secrets_arn]
+  allowed_principals = local.redis_secrets_arns
   username           = local.cfg.rdi_username
   password           = local.rdi_password
 }

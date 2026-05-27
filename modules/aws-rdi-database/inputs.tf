@@ -52,8 +52,8 @@ variable "network" {
 }
 
 variable "redis_secrets_arn" {
-  description = "AWS principal allowed to read the credentials secret. null = no resource policy (closed); \"*\" = wide-open; a specific ARN = scoped to that principal."
-  type        = string
+  description = "AWS principal(s) allowed to read the credentials secret. null = no resource policy (closed); \"*\" = wide-open; ARN or list of ARNs = scoped to those principals."
+  type        = any
   default     = null
 }
 
@@ -71,6 +71,12 @@ variable "public_access" {
 
 variable "allowed_cidrs" {
   description = "CIDR blocks permitted to reach the DB port when public_access = true. Ignored when public_access = false."
+  type        = list(string)
+  default     = []
+}
+
+variable "client_security_group_ids" {
+  description = "Security group IDs (e.g. the bastion's SG) granted ingress on the DB port. Used to let a same-VPC client connect even when public_access = false."
   type        = list(string)
   default     = []
 }
