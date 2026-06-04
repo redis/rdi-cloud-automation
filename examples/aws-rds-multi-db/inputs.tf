@@ -29,8 +29,8 @@ variable "allowed_cidrs" {
 }
 
 variable "redis_privatelink_arn" {
-  description = "Default `redis_privatelink_arn` for every DB that doesn't set its own. null = closed, \"*\" = any AWS principal, ARN = scoped."
-  type        = string
+  description = "Default `redis_privatelink_arn` for every DB that doesn't set its own. null = closed, \"*\" = any AWS principal, ARN or list of ARNs = scoped."
+  type        = any
   default     = null
 }
 
@@ -70,7 +70,7 @@ variable "databases" {
     redis_secrets_arn / redis_privatelink_arn - three states:
       - omitted (null): closed - no external principal can access this DB's secret / PrivateLink
       - "*"           : open   - any AWS principal can access
-      - specific ARN  : scoped to that Redis Cloud subscription's principal
+      - specific ARN or list of ARNs: scoped to those Redis Cloud subscription principals
   EOT
   type        = any
 }

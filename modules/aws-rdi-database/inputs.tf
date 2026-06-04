@@ -58,8 +58,8 @@ variable "redis_secrets_arn" {
 }
 
 variable "redis_privatelink_arn" {
-  description = "AWS principal allowed to consume the PrivateLink endpoint. null = no consumers allowed; \"*\" = any AWS account; a specific ARN = scoped to that principal."
-  type        = string
+  description = "AWS principal(s) allowed to consume the PrivateLink endpoint. null = no consumers allowed; \"*\" = any AWS account; ARN or list of ARNs = scoped to those principals."
+  type        = any
   default     = null
 }
 

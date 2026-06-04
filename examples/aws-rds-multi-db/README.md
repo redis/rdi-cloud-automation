@@ -29,5 +29,5 @@ terraform output -json \
 
 ### How to update a single source DB
 ```
-terraform apply -target='module.db["mysql-rds-01"]' -var-file=example.tfvars
+terraform apply -target='module.db["mysql-aurora-01"]' -var-file=example.tfvars
 ```

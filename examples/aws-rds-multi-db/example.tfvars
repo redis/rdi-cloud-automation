@@ -51,13 +51,17 @@ databases = {
     database_name = "inventory",
     init_sql_file = "../sample-data-sets/mysql.sql", aurora_instance_count = 1,
     allowed_cidrs = ["0.0.0.0/0"],
-    redis_privatelink_arn = "*",
+    redis_privatelink_arn = [
+      "arn:aws:iam::364960782546:role/redis-data-pipeline",
+      "arn:aws:iam::597729803865:role/redis-data-pipeline",
+      "arn:aws:iam::473387995565:role/redis-data-pipeline",
+      "arn:aws:iam::655177116670:role/redis-data-pipeline",
+    ],
     redis_secrets_arn     = [
       "arn:aws:iam::364960782546:role/redis-data-pipeline-secrets-role",
       "arn:aws:iam::597729803865:role/redis-data-pipeline-secrets-role",
       "arn:aws:iam::473387995565:role/redis-data-pipeline-secrets-role",
       "arn:aws:iam::655177116670:role/redis-data-pipeline-secrets-role",
-      "arn:aws:iam::368082409186:role/redis-data-pipeline-secrets-role"
     ]
   }
   # "mysql-aurora-02" = {
@@ -99,7 +103,11 @@ databases = {
     database_name = "inventory",
     init_sql_file = "../sample-data-sets/mysql.sql",
     allowed_cidrs = ["0.0.0.0/0"],
-    redis_secrets_arn     = "arn:aws:iam::178886967291:role/redis-data-pipeline-secrets-role"
+    # redis_privatelink_arn = "arn:aws:iam::500511648814:role/redis-data-pipeline",
+    redis_secrets_arn     = [
+      "arn:aws:iam::500511648814:role/redis-data-pipeline-secrets-role",
+      "arn:aws:iam::423405487100:role/redis-data-pipeline-secrets-role"
+    ]
   }
   # "mysql-rds-02" = { engine = "mysql", public_access = true, database_name = "inventory", init_sql_file = "../sample-data-sets/mysql.sql" }
   # "mysql-rds-03" = { engine = "mysql", public_access = true, database_name = "inventory", init_sql_file = "../sample-data-sets/mysql.sql" }
@@ -192,8 +200,9 @@ databases = {
     engine = "oracle",
     public_access = true,
     init_sql_file = "../sample-data-sets/oracle.sql",
-    # redis_privatelink_arn = "arn:aws:iam::896328676619:role/redis-data-pipeline",
-    # redis_secrets_arn     = "arn:aws:iam::896328676619:role/redis-data-pipeline-secrets-role"
+    redis_privatelink_arn = "arn:aws:iam::500511648814:role/redis-data-pipeline",
+    redis_secrets_arn     = "arn:aws:iam::500511648814:role/redis-data-pipeline-secrets-role"
+
   }
   # "oracle-rds-02" = { engine = "oracle", public_access = true, init_sql_file = "../sample-data-sets/oracle.sql" }
   # "oracle-rds-03" = { engine = "oracle", public_access = true, init_sql_file = "../sample-data-sets/oracle.sql" }

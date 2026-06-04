@@ -14,7 +14,7 @@ module "privatelink" {
   target_type        = "ip"
   targets            = {}
   security_groups    = [aws_security_group.this.id]
-  allowed_principals = var.redis_privatelink_arn == null ? [] : [var.redis_privatelink_arn]
+  allowed_principals = local.redis_privatelink_arns
   internal           = !var.public_access
 }
 
