@@ -5,7 +5,7 @@
 # 3. Set up a VPN connection to the VPC
 #
 # resource "null_resource" "setup_chinook_postgres" {
-#   count = var.db_engine == "postgres" ? 1 : 0
+#   count = var.source_db_mode == "demo" && var.db_engine == "postgres" ? 1 : 0
 #   depends_on = [
 #     module.rdi_quickstart_postgres,
 #     module.rds_lambda
@@ -36,7 +36,7 @@
 # 3. Use AWS Systems Manager Session Manager to connect to an EC2 instance in the VPC
 #
 # resource "null_resource" "setup_chinook_mysql" {
-#   count = var.db_engine == "mysql" ? 1 : 0
+#   count = var.source_db_mode == "demo" && var.db_engine == "mysql" ? 1 : 0
 #   depends_on = [
 #     module.rdi_quickstart_mysql,
 #     module.privatelink,
@@ -74,7 +74,7 @@
 # 3. Use AWS Systems Manager Session Manager to connect to an EC2 instance in the VPC
 #
 # resource "null_resource" "setup_chinook_sqlserver" {
-#   count = var.db_engine == "sqlserver" ? 1 : 0
+#   count = var.source_db_mode == "demo" && var.db_engine == "sqlserver" ? 1 : 0
 #   depends_on = [
 #     module.rdi_quickstart_sqlserver,
 #     module.privatelink,

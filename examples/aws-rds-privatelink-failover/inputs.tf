@@ -6,6 +6,17 @@ variable "port" {
   type = number
 }
 
+variable "source_db_mode" {
+  description = "Database source mode. Use 'demo' to create the sample Aurora/RDS database, or 'existing' to connect Redis Cloud RDI to an existing customer-owned RDS/Aurora database."
+  type        = string
+  default     = "demo"
+
+  validation {
+    condition     = contains(["demo", "existing"], var.source_db_mode)
+    error_message = "source_db_mode must be either 'demo' or 'existing'."
+  }
+}
+
 variable "name" {
   type = string
 }
@@ -27,7 +38,9 @@ variable "redis_privatelink_arn" {
 }
 
 variable "azs" {
-  type = list(string)
+  description = "Availability zones used when source_db_mode = 'demo'. Not used for existing databases."
+  type        = list(string)
+  default     = []
 }
 
 variable "db_engine" {
@@ -62,4 +75,46 @@ variable "nlb_internal" {
   description = "Whether the NLB should be internal (private, PrivateLink only) or internet-facing (public, direct access). Default: true (private)"
   type        = bool
   default     = true
+}
+
+variable "existing_db" {
+  description = "Connection and networking metadata for source_db_mode = 'existing'. The NLB must be created in the same VPC as the database targets."
+  type = object({
+    hostname              = string
+    username              = string
+    database              = string
+    vpc_id                = string
+    subnet_ids            = list(string)
+    db_security_group_ids = list(string)
+    rds_event_source_id   = string
+    rds_event_source_type = optional(string, "db-cluster")
+  })
+  default = null
+
+  validation {
+    condition = var.existing_db == null || contains(
+      ["db-cluster", "db-instance"],
+      var.existing_db.rds_event_source_type
+    )
+    error_message = "existing_db.rds_event_source_type must be either 'db-cluster' or 'db-instance'."
+  }
+}
+
+variable "existing_db_password" {
+  description = "Password for existing_db.username when source_db_mode = 'existing'. This is stored in AWS Secrets Manager for Redis Cloud RDI."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "manage_existing_db_security_group_ingress" {
+  description = "Whether Terraform should add an ingress rule to existing_db.db_security_group_ids allowing traffic from the generated NLB security group."
+  type        = bool
+  default     = false
+}
+
+variable "nlb_ingress_cidr_blocks" {
+  description = "Optional CIDR blocks allowed to reach the NLB directly. Leave empty for PrivateLink-only access."
+  type        = list(string)
+  default     = []
 }

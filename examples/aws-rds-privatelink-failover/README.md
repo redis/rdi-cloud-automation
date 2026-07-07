@@ -1,6 +1,6 @@
 # AWS RDS PrivateLink with Automatic Failover
 
-Production-ready Terraform example to connect Redis Cloud RDI to AWS RDS databases (PostgreSQL, MySQL, or SQL Server) with automatic failover support via AWS PrivateLink.
+Production-ready Terraform example to connect Redis Cloud RDI to AWS RDS databases (PostgreSQL, MySQL, or SQL Server) with automatic failover support via AWS PrivateLink. It can either create a demo database or wrap an existing customer-owned RDS/Aurora database.
 
 ## 🚀 Overview
 
@@ -11,6 +11,7 @@ This example deploys a complete RDS infrastructure with:
 - ✅ **Lambda-based failover:** Automatically updates NLB targets during RDS failover
 - ✅ **Secure connectivity:** AWS PrivateLink for private VPC-to-VPC connections
 - ✅ **Optional sample data:** Chinook database (manual setup required)
+- ✅ **Existing database mode:** Reuse a customer-owned RDS/Aurora database and create only the surrounding Redis Cloud access infrastructure
 
 ### Supported Database Engines
 
@@ -48,6 +49,7 @@ https://aws.amazon.com/blogs/database/access-amazon-rds-across-vpcs-using-aws-pr
    - PostgreSQL: `example-postgres.tfvars`
    - MySQL: `example-mysql.tfvars`
    - SQL Server: `example-sqlserver.tfvars`
+   - Existing RDS/Aurora database: `example-existing-db.tfvars`
 
 4. **Deploy**:
    ```bash
@@ -59,6 +61,9 @@ https://aws.amazon.com/blogs/database/access-amazon-rds-across-vpcs-using-aws-pr
 
    # For SQL Server
    terraform apply -var-file example-sqlserver.tfvars
+
+   # For an existing RDS/Aurora database
+   terraform apply -var-file example-existing-db.tfvars
    ```
 
 5. **Connect** to verify (optional):
@@ -79,6 +84,38 @@ name                  = "rdi-rds-demo"
 redis_secrets_arn     = "arn:aws:iam::YOUR_ACCOUNT:role/YOUR_ROLE"
 redis_privatelink_arn = "arn:aws:iam::YOUR_ACCOUNT:role/YOUR_ROLE"
 ```
+
+Set `source_db_mode = "demo"` to create a sample database, or `source_db_mode = "existing"` to reuse a customer-owned RDS/Aurora database.
+
+### Existing Database Configuration
+
+Use `example-existing-db.tfvars` when the source database and dataset already exist. The database hostname and credentials are required, and Terraform also needs the source database VPC/subnet/security group metadata so it can create the NLB and PrivateLink service in the same network.
+
+```hcl
+source_db_mode = "existing"
+
+existing_db = {
+  hostname              = "my-db.cluster-xxxxxxxxxxxx.us-east-1.rds.amazonaws.com"
+  username              = "rdi_user"
+  database              = "my_database"
+  vpc_id                = "vpc-xxxxxxxxxxxxxxxxx"
+  subnet_ids            = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-yyyyyyyyyyyyyyyyy"]
+  db_security_group_ids = ["sg-xxxxxxxxxxxxxxxxx"]
+  rds_event_source_id   = "my-db"
+  rds_event_source_type = "db-cluster"
+}
+
+existing_db_password = "..."
+```
+
+Use `rds_event_source_type = "db-cluster"` for Aurora clusters and `rds_event_source_type = "db-instance"` for standard RDS instances.
+
+By default, Terraform creates a dedicated security group for the NLB but does not modify the customer database security groups. Either:
+
+- Set `manage_existing_db_security_group_ingress = true` to let Terraform add ingress from the generated NLB security group to `existing_db.db_security_group_ids`.
+- Keep it `false` and manually allow the `existing_db_nlb_security_group_id` output to connect to the database port.
+
+Existing database mode does not create database users and does not load sample data. The supplied `existing_db.username` and `existing_db_password` are stored in AWS Secrets Manager for Redis Cloud RDI.
 
 ### Engine-Specific Configuration
 
@@ -119,6 +156,8 @@ rds_proxy_require_tls = true  # Optional
 - Adds unnecessary complexity and latency
 - Direct RDS connection is more reliable
 - Lambda-based failover is more efficient
+
+For existing database mode, keep `use_rds_proxy = false` unless the source is an Aurora cluster and the RDS Proxy target can be registered by cluster identifier. Standard RDS instance targets should use the direct NLB + Lambda path.
 
 ## 🔌 Connecting to the Database
 

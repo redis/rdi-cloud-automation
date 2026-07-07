@@ -19,9 +19,20 @@ provider "aws" {
   profile = var.aws_profile
 }
 
+resource "terraform_data" "validate_demo_azs" {
+  input = var.azs
+
+  lifecycle {
+    precondition {
+      condition     = var.source_db_mode != "demo" || length(var.azs) > 0
+      error_message = "azs must contain at least one availability zone when source_db_mode = \"demo\"."
+    }
+  }
+}
+
 # Create an RDI quickstart Postgres database on Aurora
 module "rdi_quickstart_postgres" {
-  count  = var.db_engine == "postgres" ? 1 : 0
+  count  = var.source_db_mode == "demo" && var.db_engine == "postgres" ? 1 : 0
   source = "../../modules/aws-rds-chinook"
 
   identifier  = var.name
@@ -32,7 +43,7 @@ module "rdi_quickstart_postgres" {
 
 # Create an RDI quickstart MySQL database on Aurora
 module "rdi_quickstart_mysql" {
-  count  = var.db_engine == "mysql" ? 1 : 0
+  count  = var.source_db_mode == "demo" && var.db_engine == "mysql" ? 1 : 0
   source = "../../modules/aws-rds-mysql-chinook"
 
   identifier  = var.name
@@ -43,7 +54,7 @@ module "rdi_quickstart_mysql" {
 
 # Create an RDI quickstart SQL Server database on RDS
 module "rdi_quickstart_sqlserver" {
-  count  = var.db_engine == "sqlserver" ? 1 : 0
+  count  = var.source_db_mode == "demo" && var.db_engine == "sqlserver" ? 1 : 0
   source = "../../modules/aws-rds-sqlserver-chinook"
 
   identifier  = var.name
@@ -53,37 +64,91 @@ module "rdi_quickstart_sqlserver" {
 }
 
 locals {
-  # Database engine configurations - map-based approach for clarity
-  # Only reference the module that actually exists (count=1) to avoid "invalid index" errors
-
-  # Module reference - only one will exist based on db_engine
-  db_module = (
-    var.db_engine == "postgres" ? module.rdi_quickstart_postgres[0] :
-    var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0] :
-    module.rdi_quickstart_sqlserver[0]
-  )
-
-  # Username mappings
-  db_username = {
+  demo_db_username = {
     postgres  = "postgres"
     mysql     = "admin"
     sqlserver = "sa"
   }[var.db_engine]
 
-  rdi_username = {
+  demo_rdi_username = {
     postgres  = "postgres"
     mysql     = "debezium"
     sqlserver = "rdi_user"
   }[var.db_engine]
 
-  rdi_password = {
+  demo_rdi_password = {
     postgres  = random_password.db_password.result
     mysql     = random_password.debezium_password.result
     sqlserver = random_password.rdi_password.result
   }[var.db_engine]
 
+  source_db = var.source_db_mode == "demo" ? {
+    endpoint                    = var.db_engine == "postgres" ? module.rdi_quickstart_postgres[0].rds_endpoint : var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].rds_endpoint : module.rdi_quickstart_sqlserver[0].rds_endpoint
+    username                    = local.demo_db_username
+    password                    = random_password.db_password.result
+    database                    = "chinook"
+    vpc_id                      = var.db_engine == "postgres" ? module.rdi_quickstart_postgres[0].vpc_id : var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].vpc_id : module.rdi_quickstart_sqlserver[0].vpc_id
+    subnet_ids                  = var.db_engine == "postgres" ? module.rdi_quickstart_postgres[0].vpc_public_subnets : var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].vpc_public_subnets : module.rdi_quickstart_sqlserver[0].vpc_public_subnets
+    privatelink_security_groups = var.db_engine == "postgres" ? [module.rdi_quickstart_postgres[0].security_group_id] : var.db_engine == "mysql" ? [module.rdi_quickstart_mysql[0].security_group_id] : [module.rdi_quickstart_sqlserver[0].security_group_id]
+    rds_event_source_id         = var.db_engine == "postgres" ? module.rdi_quickstart_postgres[0].rds_cluster_identifier : var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].rds_cluster_identifier : module.rdi_quickstart_sqlserver[0].rds_cluster_identifier
+    rds_event_source_type       = var.db_engine == "sqlserver" ? "db-instance" : "db-cluster"
+    } : {
+    endpoint                    = var.existing_db.hostname
+    username                    = var.existing_db.username
+    password                    = var.existing_db_password
+    database                    = var.existing_db.database
+    vpc_id                      = var.existing_db.vpc_id
+    subnet_ids                  = var.existing_db.subnet_ids
+    privatelink_security_groups = [aws_security_group.existing_db_nlb[0].id]
+    rds_event_source_id         = var.existing_db.rds_event_source_id
+    rds_event_source_type       = var.existing_db.rds_event_source_type
+  }
+
+  rdi_username = var.source_db_mode == "demo" ? local.demo_rdi_username : local.source_db.username
+  rdi_password = var.source_db_mode == "demo" ? local.demo_rdi_password : local.source_db.password
+
   # When RDS Proxy is enabled, use proxy endpoint; otherwise use RDS endpoint
-  db_endpoint = var.use_rds_proxy ? aws_db_proxy.rds_proxy[0].endpoint : local.db_module.rds_endpoint
+  db_endpoint = var.use_rds_proxy ? aws_db_proxy.rds_proxy[0].endpoint : local.source_db.endpoint
+}
+
+resource "aws_security_group" "existing_db_nlb" {
+  count = var.source_db_mode == "existing" ? 1 : 0
+
+  name        = "${var.name}-nlb"
+  description = "Security group for the RDI PrivateLink NLB"
+  vpc_id      = var.existing_db.vpc_id
+
+  tags = {
+    Name = "${var.name}-nlb"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "existing_db_nlb_direct_access" {
+  for_each = var.source_db_mode == "existing" ? toset(var.nlb_ingress_cidr_blocks) : toset([])
+
+  security_group_id = aws_security_group.existing_db_nlb[0].id
+  cidr_ipv4         = each.value
+  from_port         = var.port
+  ip_protocol       = "tcp"
+  to_port           = var.port
+}
+
+resource "aws_vpc_security_group_egress_rule" "existing_db_nlb" {
+  count = var.source_db_mode == "existing" ? 1 : 0
+
+  security_group_id = aws_security_group.existing_db_nlb[0].id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "existing_db_from_nlb" {
+  for_each = var.source_db_mode == "existing" && var.manage_existing_db_security_group_ingress ? toset(var.existing_db.db_security_group_ids) : toset([])
+
+  security_group_id            = each.value
+  referenced_security_group_id = aws_security_group.existing_db_nlb[0].id
+  from_port                    = var.port
+  ip_protocol                  = "tcp"
+  to_port                      = var.port
 }
 
 # DEPRECATED: RDS Proxy (optional, not recommended for new deployments)
@@ -105,13 +170,13 @@ resource "aws_db_proxy" "rds_proxy" {
     iam_auth    = "DISABLED"
     secret_arn  = module.secret_manager.secret_arn
   }
-  role_arn               = aws_iam_role.rds_proxy_role[0].arn
-  vpc_subnet_ids         = local.db_module.vpc_public_subnets
-  require_tls            = var.rds_proxy_require_tls
+  role_arn       = aws_iam_role.rds_proxy_role[0].arn
+  vpc_subnet_ids = local.source_db.subnet_ids
+  require_tls    = var.rds_proxy_require_tls
 
   # Use the same security group as RDS to allow NLB health checks
   # The RDS security group has a "self" ingress rule that allows traffic from resources in the same SG
-  vpc_security_group_ids = [local.db_module.security_group_id]
+  vpc_security_group_ids = local.source_db.privatelink_security_groups
 
   tags = {
     Name       = "${var.name}-proxy"
@@ -139,7 +204,7 @@ resource "aws_db_proxy_target" "rds_proxy_target" {
 
   db_proxy_name         = aws_db_proxy.rds_proxy[0].name
   target_group_name     = aws_db_proxy_default_target_group.rds_proxy_tg[0].name
-  db_cluster_identifier = local.db_module.rds_cluster_identifier
+  db_cluster_identifier = local.source_db.rds_event_source_id
 }
 
 # IAM role for RDS Proxy
@@ -174,9 +239,19 @@ resource "aws_iam_role_policy" "rds_proxy_policy" {
       {
         Effect = "Allow"
         Action = [
-          "secretsmanager:GetSecretValue"
+          "secretsmanager:GetResourcePolicy",
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:ListSecretVersionIds"
         ]
         Resource = module.secret_manager.secret_arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt"
+        ]
+        Resource = module.secret_manager.kms_key_arn
       }
     ]
   })
@@ -191,9 +266,9 @@ module "rds_lambda" {
 
   identifier             = var.name
   elb_tg_arn             = module.privatelink.tg_arn
-  db_endpoint            = local.db_endpoint  # Direct RDS endpoint (proxy not used)
-  rds_arn                = local.db_module.rds_arn
-  rds_cluster_identifier = local.db_module.rds_cluster_identifier
+  db_endpoint            = local.db_endpoint # Direct RDS endpoint (proxy not used)
+  rds_event_source_type  = local.source_db.rds_event_source_type
+  rds_cluster_identifier = local.source_db.rds_event_source_id
   db_port                = var.port
 }
 
@@ -206,11 +281,11 @@ module "privatelink" {
 
   identifier         = var.name
   port               = var.port
-  vpc_id             = local.db_module.vpc_id
-  subnets            = local.db_module.vpc_public_subnets
+  vpc_id             = local.source_db.vpc_id
+  subnets            = local.source_db.subnet_ids
   target_type        = "ip"
-  targets            = {}  # Always start empty; Lambda will populate if not using proxy
-  security_groups    = [local.db_module.security_group_id]
+  targets            = {} # Always start empty; Lambda will populate if not using proxy
+  security_groups    = local.source_db.privatelink_security_groups
   allowed_principals = [var.redis_privatelink_arn]
   internal           = var.nlb_internal
 }
@@ -254,7 +329,7 @@ EOF
 # Create the debezium user in MySQL with CDC permissions
 # This runs after both the MySQL cluster and NLB are ready
 resource "null_resource" "create_mysql_debezium_user" {
-  count = var.db_engine == "mysql" ? 1 : 0
+  count = var.source_db_mode == "demo" && var.db_engine == "mysql" ? 1 : 0
 
   depends_on = [
     module.rdi_quickstart_mysql,
@@ -297,7 +372,7 @@ EOF
 # Create the rdi_user in SQL Server with CDC permissions
 # This runs after both the SQL Server instance and NLB are ready
 resource "null_resource" "create_sqlserver_rdi_user" {
-  count = var.db_engine == "sqlserver" ? 1 : 0
+  count = var.source_db_mode == "demo" && var.db_engine == "sqlserver" ? 1 : 0
 
   depends_on = [
     module.rdi_quickstart_sqlserver,
@@ -356,10 +431,13 @@ module "secret_manager" {
 
   # Because Secret Manager secrets are soft-deleted, add a random suffix to make the name unique.
   # Otherwise running multiple apply-destroy cycles will fail because of the names conflicting.
-  identifier         = "${var.name}-${random_id.secret_suffix.hex}"
-  allowed_principals = [var.redis_secrets_arn]
-  username           = local.rdi_username  # debezium for MySQL, postgres for PostgreSQL
-  password           = local.rdi_password  # Corresponding password for RDI user
+  identifier = "${var.name}-${random_id.secret_suffix.hex}"
+  allowed_principals = compact([
+    var.redis_secrets_arn,
+    try(aws_iam_role.rds_proxy_role[0].arn, null)
+  ])
+  username = local.rdi_username # RDI/CDC user for the selected source database
+  password = local.rdi_password # Corresponding password for RDI/CDC user
 }
 
 # Fetch the RDS CA certificate bundle when TLS is required
