@@ -12,6 +12,7 @@ This example deploys a complete RDS infrastructure with:
 - ✅ **Secure connectivity:** AWS PrivateLink for private VPC-to-VPC connections
 - ✅ **Optional sample data:** Chinook database (manual setup required)
 - ✅ **Existing database mode:** Reuse a customer-owned RDS/Aurora database and create only the surrounding Redis Cloud access infrastructure
+- ✅ **Customer-managed IAM option:** Use a pre-created Lambda execution role when the Terraform runner cannot create IAM roles
 
 ### Supported Database Engines
 
@@ -73,6 +74,37 @@ https://aws.amazon.com/blogs/database/access-amazon-rds-across-vpcs-using-aws-pr
 
 ## 📝 Configuration
 
+### Deployment Modes
+
+This example has two independent mode switches:
+
+| Mode | Variable | Default | Purpose |
+|------|----------|---------|---------|
+| Source database | `source_db_mode` | `"demo"` | Choose whether Terraform creates a demo database or connects to an existing RDS/Aurora database |
+| Lambda IAM role | `lambda_role_mode` | `"managed"` | Choose whether Terraform creates the failover Lambda execution role or uses a pre-created role |
+
+The default path is:
+
+```hcl
+source_db_mode  = "demo"
+lambda_role_mode = "managed"
+use_rds_proxy   = false
+```
+
+For customer prototyping against an existing database, use:
+
+```hcl
+source_db_mode = "existing"
+use_rds_proxy  = false
+```
+
+If the Terraform runner cannot create IAM roles, also set:
+
+```hcl
+lambda_role_mode                  = "existing"
+existing_lambda_execution_role_arn = "arn:aws:iam::123456789012:role/precreated-rdi-failover-lambda-role"
+```
+
 ### Required Variables
 
 All tfvars files require these values from the Redis Cloud RDI UI:
@@ -128,6 +160,79 @@ Each tfvars file is pre-configured for its database engine:
 
 ### Optional Configuration
 
+#### Lambda IAM Role Modes
+
+When `use_rds_proxy = false` (the default), Terraform creates a Lambda function that keeps the NLB target group pointed at the current RDS writer endpoint. That Lambda needs an execution role.
+
+By default, Terraform creates the role and inline policies:
+
+```hcl
+lambda_role_mode = "managed"
+```
+
+Use this mode for internal testing, sandbox accounts, and accounts where the Terraform runner can create IAM roles and policies.
+
+For customer accounts where IAM is centrally managed, ask the customer AWS admin to pre-create the role and pass its ARN:
+
+```hcl
+lambda_role_mode                  = "existing"
+existing_lambda_execution_role_arn = "arn:aws:iam::123456789012:role/precreated-rdi-failover-lambda-role"
+```
+
+In `existing` role mode, Terraform still creates and configures the Lambda function, SNS topic, RDS event subscription, NLB, PrivateLink endpoint service, security groups, and Secrets Manager resources. It only skips creating the Lambda IAM role and role policies.
+
+This is a bring-your-own-role mode, not a bring-your-own-Lambda-function mode. Keeping the Lambda function managed by this example preserves the known-good failover handler, environment variables, SNS wiring, and initial target registration behavior while removing the most common enterprise IAM blocker.
+
+The pre-created Lambda execution role must trust Lambda:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+It also needs permissions equivalent to:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DescribeNetworkInterfaces",
+        "elasticloadbalancing:DescribeTargetHealth",
+        "elasticloadbalancing:DeregisterTargets",
+        "elasticloadbalancing:RegisterTargets"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+The Terraform runner still needs `iam:PassRole` for the supplied role ARN because AWS requires that permission when creating or updating a Lambda function with an existing role.
+
 #### Public NLB Access (Testing)
 
 By default, the NLB is **internal** (private, PrivateLink only). For testing TLS settings:
@@ -180,8 +285,8 @@ Get connection information from Terraform outputs:
 
 ```bash
 terraform output nlb_dns_name
-terraform output db_username
-terraform output db_password
+terraform output rdi_username
+terraform output rdi_password
 ```
 
 ### Manual Connection Examples
@@ -350,6 +455,29 @@ NLB Target Group
 - ✅ **VPC isolation:** Database in private subnets
 - ✅ **Security groups:** Restrict access to NLB only
 - ✅ **TLS encryption:** Supported for all engines
+
+## 🔐 IAM and Customer Account Pitfalls
+
+Many customer AWS accounts do not allow application teams to create or manage IAM roles, even when they have broad PowerUser-style access. In that case, the default `lambda_role_mode = "managed"` path can fail on actions such as:
+
+- `iam:CreateRole`
+- `iam:PutRolePolicy`
+- `iam:AttachRolePolicy`
+- `iam:PassRole`
+
+Use `lambda_role_mode = "existing"` when IAM roles must be created by a central cloud/security team. This removes the `iam:CreateRole` and role-policy creation requirements from this Terraform example, but the Terraform runner still needs `iam:PassRole` for the pre-created Lambda execution role.
+
+The Terraform runner may also need permissions for:
+
+- ELBv2/NLB resources and target groups
+- EC2 VPC security groups and security group rules
+- Lambda function create/update/invoke permissions
+- SNS topics, topic policies, subscriptions, and RDS event subscriptions
+- Secrets Manager secrets and secret policies
+- KMS key creation/use when creating managed secrets
+- Resource tagging APIs such as `ListTagsForResource`
+
+If a customer cannot grant these permissions broadly, pre-create the Lambda execution role with the policy shown in [Lambda IAM Role Modes](#lambda-iam-role-modes), then run the example with `lambda_role_mode = "existing"`.
 
 ## 🗑️ Cleanup
 

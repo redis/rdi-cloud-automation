@@ -89,6 +89,16 @@ output "source_db_mode" {
   description = "Whether the deployment is using a generated demo database or an existing database"
 }
 
+output "lambda_role_mode" {
+  value       = var.lambda_role_mode
+  description = "Whether Terraform created the failover Lambda execution role or used an existing role"
+}
+
+output "existing_lambda_execution_role_arn" {
+  value       = var.lambda_role_mode == "existing" ? var.existing_lambda_execution_role_arn : null
+  description = "The existing Lambda execution role ARN used when lambda_role_mode = 'existing'"
+}
+
 output "nlb_internal" {
   value       = var.nlb_internal
   description = "Whether the NLB is internal (private) or internet-facing (public)"

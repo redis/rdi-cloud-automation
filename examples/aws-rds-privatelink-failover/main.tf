@@ -30,6 +30,20 @@ resource "terraform_data" "validate_demo_azs" {
   }
 }
 
+resource "terraform_data" "validate_lambda_execution_role" {
+  input = {
+    lambda_role_mode                   = var.lambda_role_mode
+    existing_lambda_execution_role_arn = var.existing_lambda_execution_role_arn
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.use_rds_proxy || var.lambda_role_mode == "managed" || try(length(trimspace(var.existing_lambda_execution_role_arn)) > 0, false)
+      error_message = "existing_lambda_execution_role_arn must be set when lambda_role_mode = \"existing\"."
+    }
+  }
+}
+
 # Create an RDI quickstart Postgres database on Aurora
 module "rdi_quickstart_postgres" {
   count  = var.source_db_mode == "demo" && var.db_engine == "postgres" ? 1 : 0
@@ -264,12 +278,14 @@ module "rds_lambda" {
   source     = "../../modules/aws-rds-lambda"
   depends_on = [module.rdi_quickstart_postgres, module.rdi_quickstart_mysql, module.rdi_quickstart_sqlserver]
 
-  identifier             = var.name
-  elb_tg_arn             = module.privatelink.tg_arn
-  db_endpoint            = local.db_endpoint # Direct RDS endpoint (proxy not used)
-  rds_event_source_type  = local.source_db.rds_event_source_type
-  rds_cluster_identifier = local.source_db.rds_event_source_id
-  db_port                = var.port
+  identifier                = var.name
+  elb_tg_arn                = module.privatelink.tg_arn
+  db_endpoint               = local.db_endpoint # Direct RDS endpoint (proxy not used)
+  rds_event_source_type     = local.source_db.rds_event_source_type
+  rds_cluster_identifier    = local.source_db.rds_event_source_id
+  db_port                   = var.port
+  lambda_role_mode          = var.lambda_role_mode
+  lambda_execution_role_arn = var.existing_lambda_execution_role_arn
 }
 
 # Create an NLB and PrivateLink Endpoint Service which allows secure connection to the database from Redis Cloud.

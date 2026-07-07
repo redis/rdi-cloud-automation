@@ -71,6 +71,23 @@ variable "rds_proxy_require_tls" {
   default     = false
 }
 
+variable "lambda_role_mode" {
+  description = "How to provision the failover Lambda execution role. Use 'managed' to let Terraform create IAM resources, or 'existing' to use an admin-provided role ARN."
+  type        = string
+  default     = "managed"
+
+  validation {
+    condition     = contains(["managed", "existing"], var.lambda_role_mode)
+    error_message = "lambda_role_mode must be either 'managed' or 'existing'."
+  }
+}
+
+variable "existing_lambda_execution_role_arn" {
+  description = "Existing Lambda execution role ARN to use when lambda_role_mode = 'existing'. The Terraform runner still needs iam:PassRole for this role."
+  type        = string
+  default     = null
+}
+
 variable "nlb_internal" {
   description = "Whether the NLB should be internal (private, PrivateLink only) or internet-facing (public, direct access). Default: true (private)"
   type        = bool
