@@ -88,6 +88,23 @@ variable "existing_lambda_execution_role_arn" {
   default     = null
 }
 
+variable "kms_key_mode" {
+  description = "How to provision the KMS key used by Secrets Manager. Use 'managed' to let Terraform create it, or 'existing' to use an admin-provided key ARN."
+  type        = string
+  default     = "managed"
+
+  validation {
+    condition     = contains(["managed", "existing"], var.kms_key_mode)
+    error_message = "kms_key_mode must be either 'managed' or 'existing'."
+  }
+}
+
+variable "existing_kms_key_arn" {
+  description = "Existing KMS key ARN to use when kms_key_mode = 'existing'. The key policy must allow Secrets Manager use and decrypt access for Redis Cloud."
+  type        = string
+  default     = null
+}
+
 variable "nlb_internal" {
   description = "Whether the NLB should be internal (private, PrivateLink only) or internet-facing (public, direct access). Default: true (private)"
   type        = bool

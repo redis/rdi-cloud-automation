@@ -76,19 +76,21 @@ https://aws.amazon.com/blogs/database/access-amazon-rds-across-vpcs-using-aws-pr
 
 ### Deployment Modes
 
-This example has two independent mode switches:
+This example has three independent mode switches:
 
 | Mode | Variable | Default | Purpose |
 |------|----------|---------|---------|
 | Source database | `source_db_mode` | `"demo"` | Choose whether Terraform creates a demo database or connects to an existing RDS/Aurora database |
 | Lambda IAM role | `lambda_role_mode` | `"managed"` | Choose whether Terraform creates the failover Lambda execution role or uses a pre-created role |
+| Secrets Manager KMS key | `kms_key_mode` | `"managed"` | Choose whether Terraform creates the KMS key for the RDI secret or uses a pre-created key |
 
 The default path is:
 
 ```hcl
-source_db_mode  = "demo"
+source_db_mode   = "demo"
 lambda_role_mode = "managed"
-use_rds_proxy   = false
+kms_key_mode     = "managed"
+use_rds_proxy    = false
 ```
 
 For customer prototyping against an existing database, use:
@@ -103,6 +105,13 @@ If the Terraform runner cannot create IAM roles, also set:
 ```hcl
 lambda_role_mode                  = "existing"
 existing_lambda_execution_role_arn = "arn:aws:iam::123456789012:role/precreated-rdi-failover-lambda-role"
+```
+
+If the Terraform runner cannot create or manage KMS keys, also set:
+
+```hcl
+kms_key_mode         = "existing"
+existing_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
 ```
 
 ### Required Variables
@@ -303,6 +312,119 @@ module.rds_lambda[0].aws_iam_role_policy.log_group_lambda_execution_role_policy[
 ```
 
 If `lambda_role_mode = "existing"` is set without `existing_lambda_execution_role_arn`, Terraform fails early with a validation error. If the role exists but the Terraform runner lacks `iam:PassRole`, apply is expected to fail at Lambda creation/update.
+
+#### KMS Key Modes
+
+The RDI database credentials are stored in AWS Secrets Manager. By default, this example creates a customer-managed KMS key for that secret:
+
+```hcl
+kms_key_mode = "managed"
+```
+
+Use this mode for sandbox accounts and accounts where the Terraform runner can create and manage KMS keys and key policies.
+
+For customer accounts where KMS keys are centrally managed, ask the customer AWS admin to pre-create the key and pass its ARN:
+
+```hcl
+kms_key_mode         = "existing"
+existing_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+```
+
+In `existing` KMS mode, Terraform still creates the Secrets Manager secret and secret policy. It only skips creating, configuring, tagging, and deleting the KMS key. Terraform does not modify the existing key policy.
+
+The pre-created KMS key policy must allow all required principals. At minimum, make sure it allows:
+
+- The Terraform runner to use the key while creating and updating the secret.
+- The Redis Cloud secrets role from `redis_secrets_arn` to decrypt the secret.
+- The RDS Proxy role if deprecated `use_rds_proxy = true`.
+
+A practical key policy statement for Redis Cloud secret reads looks like:
+
+```json
+{
+  "Sid": "AllowRedisCloudSecretsRoleToDecryptRDISecret",
+  "Effect": "Allow",
+  "Principal": {
+    "AWS": "arn:aws:iam::123456789012:role/redis-data-pipeline-secrets-role"
+  },
+  "Action": [
+    "kms:Decrypt",
+    "kms:DescribeKey"
+  ],
+  "Resource": "*",
+  "Condition": {
+    "StringEquals": {
+      "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com"
+    },
+    "StringLike": {
+      "kms:EncryptionContext:aws:secretsmanager:arn": "arn:aws:secretsmanager:us-east-1:123456789012:secret:rdi-rds-demo-*"
+    }
+  }
+}
+```
+
+Adjust the region, account ID, role ARN, and secret name prefix to match the deployment. If the secret name is not known ahead of time, use a broader encryption-context pattern approved by the customer security team.
+
+A practical key policy statement for the Terraform runner looks like:
+
+```json
+{
+  "Sid": "AllowTerraformRunnerToUseKeyForSecretsManager",
+  "Effect": "Allow",
+  "Principal": {
+    "AWS": "arn:aws:iam::123456789012:role/customer-terraform-runner-role"
+  },
+  "Action": [
+    "kms:DescribeKey",
+    "kms:Encrypt",
+    "kms:Decrypt",
+    "kms:ReEncrypt*",
+    "kms:GenerateDataKey*",
+    "kms:CreateGrant",
+    "kms:ListGrants",
+    "kms:RevokeGrant"
+  ],
+  "Resource": "*",
+  "Condition": {
+    "StringEquals": {
+      "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com"
+    }
+  }
+}
+```
+
+Some organizations prefer to manage grants instead of broad key-policy statements. That is fine as long as Secrets Manager can use the key and the Redis Cloud secrets role can decrypt the secret value at runtime.
+
+##### Testing With PowerUser Access
+
+To prove the default failure mode, leave `kms_key_mode` unset or set it to `managed`:
+
+```hcl
+kms_key_mode = "managed"
+```
+
+A PowerUser-style account that cannot create or manage KMS keys may fail on `kms:CreateKey`, `kms:PutKeyPolicy`, `kms:TagResource`, or related KMS actions.
+
+To test the customer-managed KMS path, set:
+
+```hcl
+kms_key_mode         = "existing"
+existing_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+```
+
+Then run:
+
+```bash
+terraform plan -var-file example-existing-db.tfvars
+```
+
+The plan should no longer include:
+
+```text
+module.secret_manager.aws_kms_key.rdi_key[0]
+```
+
+If `kms_key_mode = "existing"` is set without `existing_kms_key_arn`, Terraform fails early with a validation error. If the key policy does not trust the Terraform runner or Redis Cloud secrets role, apply or RDI secret reads can still fail with KMS access errors.
 
 #### Public NLB Access (Testing)
 
@@ -538,6 +660,8 @@ Many customer AWS accounts do not allow application teams to create or manage IA
 
 Use `lambda_role_mode = "existing"` when IAM roles must be created by a central cloud/security team. This removes the `iam:CreateRole` and role-policy creation requirements from this Terraform example, but the Terraform runner still needs `iam:PassRole` for the pre-created Lambda execution role.
 
+Use `kms_key_mode = "existing"` when KMS keys must be created and governed by a central cloud/security team. This removes KMS key creation and key-policy management from this Terraform example, but the pre-created key policy must already allow Secrets Manager use and decrypt access for the Redis Cloud secrets role.
+
 The Terraform runner may also need permissions for:
 
 - ELBv2/NLB resources and target groups
@@ -545,10 +669,10 @@ The Terraform runner may also need permissions for:
 - Lambda function create/update/invoke permissions
 - SNS topics, topic policies, subscriptions, and RDS event subscriptions
 - Secrets Manager secrets and secret policies
-- KMS key creation/use when creating managed secrets
+- KMS key creation/use when creating managed secrets, or KMS key usage when `kms_key_mode = "existing"`
 - Resource tagging APIs such as `ListTagsForResource`
 
-If a customer cannot grant these permissions broadly, pre-create the Lambda execution role with the policy shown in [Lambda IAM Role Modes](#lambda-iam-role-modes), then run the example with `lambda_role_mode = "existing"`.
+If a customer cannot grant these permissions broadly, pre-create the Lambda execution role with the policy shown in [Lambda IAM Role Modes](#lambda-iam-role-modes), pre-create the KMS key with the policy shown in [KMS Key Modes](#kms-key-modes), then run the example with `lambda_role_mode = "existing"` and/or `kms_key_mode = "existing"`.
 
 ## 🗑️ Cleanup
 

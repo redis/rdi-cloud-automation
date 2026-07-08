@@ -99,6 +99,16 @@ output "existing_lambda_execution_role_arn" {
   description = "The existing Lambda execution role ARN used when lambda_role_mode = 'existing'"
 }
 
+output "kms_key_mode" {
+  value       = var.kms_key_mode
+  description = "Whether Terraform created the Secrets Manager KMS key or used an existing key"
+}
+
+output "kms_key_arn" {
+  value       = module.secret_manager.kms_key_arn
+  description = "The KMS key ARN used by Secrets Manager for the RDI secret"
+}
+
 output "nlb_internal" {
   value       = var.nlb_internal
   description = "Whether the NLB is internal (private) or internet-facing (public)"

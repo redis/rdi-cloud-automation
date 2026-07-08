@@ -3,5 +3,5 @@ output "secret_arn" {
 }
 
 output "kms_key_arn" {
-  value = resource.aws_kms_key.rdi_key.arn
+  value = local.kms_key_arn
 }

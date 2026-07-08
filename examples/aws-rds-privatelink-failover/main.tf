@@ -44,6 +44,20 @@ resource "terraform_data" "validate_lambda_execution_role" {
   }
 }
 
+resource "terraform_data" "validate_kms_key" {
+  input = {
+    kms_key_mode         = var.kms_key_mode
+    existing_kms_key_arn = var.existing_kms_key_arn
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.kms_key_mode == "managed" || try(length(trimspace(var.existing_kms_key_arn)) > 0, false)
+      error_message = "existing_kms_key_arn must be set when kms_key_mode = \"existing\"."
+    }
+  }
+}
+
 # Create an RDI quickstart Postgres database on Aurora
 module "rdi_quickstart_postgres" {
   count  = var.source_db_mode == "demo" && var.db_engine == "postgres" ? 1 : 0
@@ -452,8 +466,10 @@ module "secret_manager" {
     var.redis_secrets_arn,
     try(aws_iam_role.rds_proxy_role[0].arn, null)
   ])
-  username = local.rdi_username # RDI/CDC user for the selected source database
-  password = local.rdi_password # Corresponding password for RDI/CDC user
+  username             = local.rdi_username # RDI/CDC user for the selected source database
+  password             = local.rdi_password # Corresponding password for RDI/CDC user
+  kms_key_mode         = var.kms_key_mode
+  existing_kms_key_arn = var.existing_kms_key_arn
 }
 
 # Fetch the RDS CA certificate bundle when TLS is required
