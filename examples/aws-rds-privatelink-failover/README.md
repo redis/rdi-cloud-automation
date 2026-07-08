@@ -233,6 +233,77 @@ It also needs permissions equivalent to:
 
 The Terraform runner still needs `iam:PassRole` for the supplied role ARN because AWS requires that permission when creating or updating a Lambda function with an existing role.
 
+##### AWS Console Shortcut
+
+If the role is created in the AWS console:
+
+1. Go to IAM → Roles → Create role.
+2. Select **AWS service** as the trusted entity.
+3. Select **Lambda** as the use case.
+4. Attach the AWS managed policy `AWSLambdaVPCAccessExecutionRole`.
+5. Add the ELB target group inline policy shown above.
+6. Copy the created role ARN into `existing_lambda_execution_role_arn`.
+
+`AWSLambdaVPCAccessExecutionRole` covers the CloudWatch Logs and VPC network-interface permissions. The inline ELB policy is still required because the failover Lambda registers and deregisters NLB target IPs.
+
+##### Terraform Runner PassRole Permission
+
+The user or role running Terraform needs permission to pass only the approved Lambda execution role. An AWS admin can grant that with a scoped policy like:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::123456789012:role/precreated-rdi-failover-lambda-role",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "lambda.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
+```
+
+Without this permission, `lambda_role_mode = "existing"` gets past IAM role creation but Lambda creation/update can still fail with `iam:PassRole`.
+
+##### Testing With PowerUser Access
+
+To prove the default failure mode, leave `lambda_role_mode` unset or set it to `managed`:
+
+```hcl
+lambda_role_mode = "managed"
+```
+
+A PowerUser-style account that cannot create IAM roles is expected to fail with `iam:CreateRole`.
+
+To test the customer-managed role path, set:
+
+```hcl
+lambda_role_mode                   = "existing"
+existing_lambda_execution_role_arn = "arn:aws:iam::123456789012:role/precreated-rdi-failover-lambda-role"
+use_rds_proxy                      = false
+```
+
+Then run:
+
+```bash
+terraform plan -var-file example-existing-db.tfvars
+```
+
+The plan should no longer include:
+
+```text
+module.rds_lambda[0].aws_iam_role.lambda_execution_role[0]
+module.rds_lambda[0].aws_iam_role_policy.ec2_elb_lambda_execution_role_policy[0]
+module.rds_lambda[0].aws_iam_role_policy.log_group_lambda_execution_role_policy[0]
+```
+
+If `lambda_role_mode = "existing"` is set without `existing_lambda_execution_role_arn`, Terraform fails early with a validation error. If the role exists but the Terraform runner lacks `iam:PassRole`, apply is expected to fail at Lambda creation/update.
+
 #### Public NLB Access (Testing)
 
 By default, the NLB is **internal** (private, PrivateLink only). For testing TLS settings:
