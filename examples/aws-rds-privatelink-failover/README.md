@@ -37,6 +37,29 @@ https://aws.amazon.com/blogs/database/access-amazon-rds-across-vpcs-using-aws-pr
   - `mysql` for MySQL
   - `sqlcmd` for SQL Server ([installation guide](https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-setup-tools))
 
+### AWS Authentication
+
+Before running `terraform plan`, `terraform apply`, or `terraform destroy`, authenticate to AWS in the same terminal session and verify the active identity:
+
+```bash
+aws sts get-caller-identity
+```
+
+If you use an AWS CLI profile, either export it before running Terraform:
+
+```bash
+export AWS_PROFILE=<profile-name>
+aws sts get-caller-identity
+```
+
+or set `aws_profile` in the tfvars file:
+
+```hcl
+aws_profile = "<profile-name>"
+```
+
+If `aws_profile = null`, Terraform uses the default AWS credential chain from the terminal environment. This is useful for SSO sessions, environment credentials, or temporary credentials, but always confirm the account and role with `aws sts get-caller-identity` before applying.
+
 ## 🚦 Quick Start
 
 1. **Initialize Terraform** (first time only):
@@ -148,6 +171,31 @@ existing_db = {
 
 existing_db_password = "..."
 ```
+
+`subnet_ids` is the most deterministic option. These are the subnets where AWS creates the NLB nodes, and they must be in the same VPC as the source database.
+
+If customers do not want to copy subnet IDs, they can use `subnet_lookup` instead. Terraform resolves one subnet per requested Availability Zone in `existing_db.vpc_id`:
+
+```hcl
+existing_db = {
+  hostname              = "my-db.cluster-xxxxxxxxxxxx.us-east-1.rds.amazonaws.com"
+  username              = "rdi_user"
+  database              = "my_database"
+  vpc_id                = "vpc-xxxxxxxxxxxxxxxxx"
+  db_security_group_ids = ["sg-xxxxxxxxxxxxxxxxx"]
+  rds_event_source_id   = "my-db"
+  rds_event_source_type = "db-cluster"
+
+  subnet_lookup = {
+    azs = ["1a", "1b"]
+    tags = {
+      Tier = "private"
+    }
+  }
+}
+```
+
+The `azs` values can be full names like `us-east-1a`, short names like `a`, or region-number suffixes like `1a`. If the lookup matches zero subnets or more than one subnet in an AZ, Terraform fails and asks for more specific tags or explicit `subnet_ids`. Do not set both `subnet_ids` and `subnet_lookup`.
 
 Use `rds_event_source_type = "db-cluster"` for Aurora clusters and `rds_event_source_type = "db-instance"` for standard RDS instances.
 

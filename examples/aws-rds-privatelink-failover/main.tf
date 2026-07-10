@@ -58,6 +58,96 @@ resource "terraform_data" "validate_kms_key" {
   }
 }
 
+locals {
+  existing_db = var.existing_db == null ? {
+    hostname              = ""
+    username              = ""
+    database              = ""
+    vpc_id                = ""
+    subnet_ids            = []
+    subnet_lookup         = null
+    db_security_group_ids = []
+    rds_event_source_id   = ""
+    rds_event_source_type = "db-cluster"
+  } : var.existing_db
+
+  existing_db_required_values = [
+    local.existing_db.hostname,
+    local.existing_db.username,
+    local.existing_db.database,
+    local.existing_db.vpc_id,
+    local.existing_db.rds_event_source_id
+  ]
+
+  existing_db_subnet_lookup_azs = var.source_db_mode == "existing" && local.existing_db.subnet_lookup != null ? [
+    for az in local.existing_db.subnet_lookup.azs :
+    startswith(az, var.region) ? az : (
+      can(regex("^[0-9]+[a-z]$", az)) ? "${regexreplace(var.region, "[0-9]+$", "")}${az}" : "${var.region}${az}"
+    )
+  ] : []
+}
+
+resource "terraform_data" "validate_existing_db" {
+  input = {
+    source_db_mode = var.source_db_mode
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.source_db_mode != "existing" || var.existing_db != null
+      error_message = "existing_db must be set when source_db_mode = \"existing\"."
+    }
+
+    precondition {
+      condition = var.source_db_mode != "existing" || alltrue([
+        for value in local.existing_db_required_values : length(trimspace(value)) > 0
+      ])
+      error_message = "existing_db.hostname, username, database, vpc_id, and rds_event_source_id must be non-empty when source_db_mode = \"existing\"."
+    }
+
+    precondition {
+      condition     = var.source_db_mode != "existing" || length(local.existing_db.db_security_group_ids) > 0
+      error_message = "existing_db.db_security_group_ids must contain at least one security group ID when source_db_mode = \"existing\"."
+    }
+
+    precondition {
+      condition     = var.source_db_mode != "existing" || try(length(trimspace(nonsensitive(var.existing_db_password))) > 0, false)
+      error_message = "existing_db_password must be set and non-empty when source_db_mode = \"existing\"."
+    }
+  }
+}
+
+data "aws_subnets" "existing_db_lookup" {
+  for_each = toset(local.existing_db_subnet_lookup_azs)
+
+  filter {
+    name   = "vpc-id"
+    values = [local.existing_db.vpc_id]
+  }
+
+  filter {
+    name   = "availability-zone"
+    values = [each.value]
+  }
+
+  tags = try(local.existing_db.subnet_lookup.tags, {})
+}
+
+resource "terraform_data" "validate_existing_db_subnet_lookup" {
+  input = {
+    azs = local.existing_db_subnet_lookup_azs
+  }
+
+  lifecycle {
+    precondition {
+      condition = length(local.existing_db_subnet_lookup_azs) == 0 || alltrue([
+        for az in local.existing_db_subnet_lookup_azs : length(data.aws_subnets.existing_db_lookup[az].ids) == 1
+      ])
+      error_message = "existing_db.subnet_lookup must match exactly one subnet per requested AZ. Add tags to disambiguate public/private/database subnets, or use explicit subnet_ids."
+    }
+  }
+}
+
 # Create an RDI quickstart Postgres database on Aurora
 module "rdi_quickstart_postgres" {
   count  = var.source_db_mode == "demo" && var.db_engine == "postgres" ? 1 : 0
@@ -110,6 +200,10 @@ locals {
     sqlserver = random_password.rdi_password.result
   }[var.db_engine]
 
+  existing_db_lookup_subnet_ids = flatten([
+    for az in local.existing_db_subnet_lookup_azs : data.aws_subnets.existing_db_lookup[az].ids
+  ])
+
   source_db = var.source_db_mode == "demo" ? {
     endpoint                    = var.db_engine == "postgres" ? module.rdi_quickstart_postgres[0].rds_endpoint : var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].rds_endpoint : module.rdi_quickstart_sqlserver[0].rds_endpoint
     username                    = local.demo_db_username
@@ -121,15 +215,15 @@ locals {
     rds_event_source_id         = var.db_engine == "postgres" ? module.rdi_quickstart_postgres[0].rds_cluster_identifier : var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].rds_cluster_identifier : module.rdi_quickstart_sqlserver[0].rds_cluster_identifier
     rds_event_source_type       = var.db_engine == "sqlserver" ? "db-instance" : "db-cluster"
     } : {
-    endpoint                    = var.existing_db.hostname
-    username                    = var.existing_db.username
+    endpoint                    = local.existing_db.hostname
+    username                    = local.existing_db.username
     password                    = var.existing_db_password
-    database                    = var.existing_db.database
-    vpc_id                      = var.existing_db.vpc_id
-    subnet_ids                  = var.existing_db.subnet_ids
+    database                    = local.existing_db.database
+    vpc_id                      = local.existing_db.vpc_id
+    subnet_ids                  = length(local.existing_db.subnet_ids) > 0 ? local.existing_db.subnet_ids : local.existing_db_lookup_subnet_ids
     privatelink_security_groups = [aws_security_group.existing_db_nlb[0].id]
-    rds_event_source_id         = var.existing_db.rds_event_source_id
-    rds_event_source_type       = var.existing_db.rds_event_source_type
+    rds_event_source_id         = local.existing_db.rds_event_source_id
+    rds_event_source_type       = local.existing_db.rds_event_source_type
   }
 
   rdi_username = var.source_db_mode == "demo" ? local.demo_rdi_username : local.source_db.username
@@ -144,7 +238,7 @@ resource "aws_security_group" "existing_db_nlb" {
 
   name        = "${var.name}-nlb"
   description = "Security group for the RDI PrivateLink NLB"
-  vpc_id      = var.existing_db.vpc_id
+  vpc_id      = local.existing_db.vpc_id
 
   tags = {
     Name = "${var.name}-nlb"
@@ -170,7 +264,7 @@ resource "aws_vpc_security_group_egress_rule" "existing_db_nlb" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "existing_db_from_nlb" {
-  for_each = var.source_db_mode == "existing" && var.manage_existing_db_security_group_ingress ? toset(var.existing_db.db_security_group_ids) : toset([])
+  for_each = var.source_db_mode == "existing" && var.manage_existing_db_security_group_ingress ? toset(local.existing_db.db_security_group_ids) : toset([])
 
   security_group_id            = each.value
   referenced_security_group_id = aws_security_group.existing_db_nlb[0].id
@@ -227,12 +321,20 @@ resource "aws_db_proxy_default_target_group" "rds_proxy_tg" {
   }
 }
 
-resource "aws_db_proxy_target" "rds_proxy_target" {
-  count = var.use_rds_proxy ? 1 : 0
+resource "aws_db_proxy_target" "rds_proxy_cluster_target" {
+  count = var.use_rds_proxy && local.source_db.rds_event_source_type == "db-cluster" ? 1 : 0
 
   db_proxy_name         = aws_db_proxy.rds_proxy[0].name
   target_group_name     = aws_db_proxy_default_target_group.rds_proxy_tg[0].name
   db_cluster_identifier = local.source_db.rds_event_source_id
+}
+
+resource "aws_db_proxy_target" "rds_proxy_instance_target" {
+  count = var.use_rds_proxy && local.source_db.rds_event_source_type == "db-instance" ? 1 : 0
+
+  db_proxy_name          = aws_db_proxy.rds_proxy[0].name
+  target_group_name      = aws_db_proxy_default_target_group.rds_proxy_tg[0].name
+  db_instance_identifier = local.source_db.rds_event_source_id
 }
 
 # IAM role for RDS Proxy

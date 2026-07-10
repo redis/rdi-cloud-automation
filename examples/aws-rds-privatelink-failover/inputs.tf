@@ -112,13 +112,17 @@ variable "nlb_internal" {
 }
 
 variable "existing_db" {
-  description = "Connection and networking metadata for source_db_mode = 'existing'. The NLB must be created in the same VPC as the database targets."
+  description = "Connection and networking metadata for source_db_mode = 'existing'. The NLB must be created in the same VPC as the database targets. Provide either subnet_ids or subnet_lookup."
   type = object({
-    hostname              = string
-    username              = string
-    database              = string
-    vpc_id                = string
-    subnet_ids            = list(string)
+    hostname   = string
+    username   = string
+    database   = string
+    vpc_id     = string
+    subnet_ids = optional(list(string), [])
+    subnet_lookup = optional(object({
+      azs  = list(string)
+      tags = optional(map(string), {})
+    }))
     db_security_group_ids = list(string)
     rds_event_source_id   = string
     rds_event_source_type = optional(string, "db-cluster")
@@ -131,6 +135,22 @@ variable "existing_db" {
       var.existing_db.rds_event_source_type
     )
     error_message = "existing_db.rds_event_source_type must be either 'db-cluster' or 'db-instance'."
+  }
+
+  validation {
+    condition = var.existing_db == null || (
+      length(var.existing_db.subnet_ids) > 0 ||
+      try(length(var.existing_db.subnet_lookup.azs), 0) > 0
+    )
+    error_message = "existing_db must include either subnet_ids or subnet_lookup.azs."
+  }
+
+  validation {
+    condition = var.existing_db == null || !(
+      length(var.existing_db.subnet_ids) > 0 &&
+      try(length(var.existing_db.subnet_lookup.azs), 0) > 0
+    )
+    error_message = "existing_db must use either subnet_ids or subnet_lookup.azs, not both."
   }
 }
 
