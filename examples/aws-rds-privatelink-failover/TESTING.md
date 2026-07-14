@@ -86,12 +86,12 @@ The `examples/aws-rds-privatelink-failover` now supports both database engines:
 
 ### Database Setup
 
-The `db_setup.tf` file contains conditional resources that automatically download and load the Chinook sample database based on the selected engine:
-- **PostgreSQL**: Uses the PostgreSQL version from rdi-quickstart-postgres repo
-- **MySQL**: Uses the MySQL version from the chinook-database repo, and creates a dedicated `debezium` user with the required grants:
-  - `SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT, LOCK TABLES`
+Sample data loading is manual because it requires network access to the database endpoint:
+- **PostgreSQL**: Use the PostgreSQL Chinook script from the rdi-quickstart-postgres repo
+- **MySQL**: Use the MySQL Chinook script from the chinook-database repo
+- **SQL Server**: Use the SQL Server Chinook script from the chinook-database repo
 
-This approach is scalable for future database engines (SQL Server, standard RDS MySQL, etc.) - each engine gets its own conditional setup resource.
+Load data from a bastion host, VPN-connected workstation, SSM-managed EC2 instance, or a public NLB created for testing only. The demo MySQL and SQL Server modes still create their RDI users automatically during `terraform apply`.
 
 ## Key Differences
 
@@ -145,4 +145,3 @@ terraform apply -var-file example-mysql.tfvars
 2. Verify CDC (Change Data Capture) is working correctly
 3. Test failover scenarios with the Lambda function
 4. Monitor the RDS cluster performance
-

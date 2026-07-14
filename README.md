@@ -257,7 +257,14 @@ cd examples/aws-rds-privatelink-failover
 terraform plan -var-file example-existing-db.tfvars
 ```
 
-Existing database mode needs the database hostname, RDI database credentials, VPC ID, security group IDs, and NLB subnet placement. Use explicit `subnet_ids` when possible. If customers prefer human-readable AZs, use `existing_db.subnet_lookup` with AZ values such as `1a` and tags that identify exactly one subnet per AZ. See the example README for the full configuration.
+Existing database mode requires:
+
+- Source database hostname, database name, and RDI credentials
+- Source VPC ID and database security group IDs
+- NLB subnet placement with explicit `subnet_ids` or `existing_db.subnet_lookup`
+- Redis Cloud RDI IAM role ARNs from the UI
+
+Prefer explicit `subnet_ids` for production. Use `subnet_lookup` only when subnet tags identify exactly one subnet per requested AZ. See the example README for the full configuration.
 
 ### 5. Multi-Region Deployment
 

@@ -549,11 +549,11 @@ sqlcmd -S <nlb_dns_name>,1433 -U rdi_user -P '<password>' -d master
 
 ## 📊 Sample Data Setup (Optional)
 
-The Chinook sample database setup is **commented out by default** in `db_setup.tf` because it requires network access to the private RDS instance.
+Sample data loading is intentionally handled outside Terraform. Loading Chinook requires a client that can reach the database endpoint, and that access pattern depends on the customer's network setup.
 
-### Why It's Commented Out
+### Why It's Manual
 
-The `null_resource` provisioners in `db_setup.tf` need to connect to the RDS instance to load data. This requires:
+Database clients need network access to the source database or NLB. This requires:
 - Either `nlb_internal = false` (public NLB) for direct access
 - Or VPN/bastion host access to the VPC
 
@@ -562,11 +562,8 @@ The `null_resource` provisioners in `db_setup.tf` need to connect to the RDS ins
 #### Option 1: Public NLB (Testing Only)
 
 1. Set `nlb_internal = false` in your tfvars file
-2. Uncomment the appropriate resource in `db_setup.tf`:
-   - `null_resource.setup_chinook_postgres` for PostgreSQL
-   - `null_resource.setup_chinook_mysql` for MySQL
-   - `null_resource.setup_chinook_sqlserver` for SQL Server
-3. Run `terraform apply -var-file example-<engine>.tfvars`
+2. Run `terraform apply -var-file example-<engine>.tfvars`
+3. Load the relevant Chinook script from the machine running the database client
 
 **Security note:** Only use public NLB for testing. Use private NLB for production.
 
