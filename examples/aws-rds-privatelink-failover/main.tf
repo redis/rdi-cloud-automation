@@ -495,7 +495,7 @@ EOF
 
   # Recreate if any of these change
   triggers = {
-    cluster_endpoint  = var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].rds_endpoint : ""
+    cluster_endpoint  = var.source_db_mode == "demo" && var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].rds_endpoint : ""
     debezium_password = random_password.debezium_password.result
     nlb_hostname      = module.privatelink.lb_hostname
   }
@@ -550,7 +550,7 @@ EOF
 
   # Recreate if any of these change
   triggers = {
-    instance_endpoint = var.db_engine == "sqlserver" ? module.rdi_quickstart_sqlserver[0].rds_endpoint : ""
+    instance_endpoint = var.source_db_mode == "demo" && var.db_engine == "sqlserver" ? module.rdi_quickstart_sqlserver[0].rds_endpoint : ""
     rdi_password      = random_password.rdi_password.result
     nlb_hostname      = module.privatelink.lb_hostname
   }
