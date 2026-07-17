@@ -1,7 +1,9 @@
 resource "aws_secretsmanager_secret" "rdi_secret" {
   name       = var.identifier
   kms_key_id = resource.aws_kms_key.rdi_key.arn
-  policy = jsonencode({
+
+  # No principals listed -> no resource policy -> only the owning AWS account can read.
+  policy = length(var.allowed_principals) == 0 ? null : jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [for p in var.allowed_principals :
       {

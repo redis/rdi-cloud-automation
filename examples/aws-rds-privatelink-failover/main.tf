@@ -84,6 +84,12 @@ locals {
 
   # When RDS Proxy is enabled, use proxy endpoint; otherwise use RDS endpoint
   db_endpoint = var.use_rds_proxy ? aws_db_proxy.rds_proxy[0].endpoint : local.db_module.rds_endpoint
+
+  redis_privatelink_arns = (
+    var.redis_privatelink_arn == null ? [] :
+    can(tolist(var.redis_privatelink_arn)) ? [for arn in tolist(var.redis_privatelink_arn) : tostring(arn)] :
+    [tostring(var.redis_privatelink_arn)]
+  )
 }
 
 # DEPRECATED: RDS Proxy (optional, not recommended for new deployments)
@@ -105,9 +111,9 @@ resource "aws_db_proxy" "rds_proxy" {
     iam_auth    = "DISABLED"
     secret_arn  = module.secret_manager.secret_arn
   }
-  role_arn               = aws_iam_role.rds_proxy_role[0].arn
-  vpc_subnet_ids         = local.db_module.vpc_public_subnets
-  require_tls            = var.rds_proxy_require_tls
+  role_arn       = aws_iam_role.rds_proxy_role[0].arn
+  vpc_subnet_ids = local.db_module.vpc_public_subnets
+  require_tls    = var.rds_proxy_require_tls
 
   # Use the same security group as RDS to allow NLB health checks
   # The RDS security group has a "self" ingress rule that allows traffic from resources in the same SG
@@ -191,7 +197,7 @@ module "rds_lambda" {
 
   identifier             = var.name
   elb_tg_arn             = module.privatelink.tg_arn
-  db_endpoint            = local.db_endpoint  # Direct RDS endpoint (proxy not used)
+  db_endpoint            = local.db_endpoint # Direct RDS endpoint (proxy not used)
   rds_arn                = local.db_module.rds_arn
   rds_cluster_identifier = local.db_module.rds_cluster_identifier
   db_port                = var.port
@@ -209,9 +215,9 @@ module "privatelink" {
   vpc_id             = local.db_module.vpc_id
   subnets            = local.db_module.vpc_public_subnets
   target_type        = "ip"
-  targets            = {}  # Always start empty; Lambda will populate if not using proxy
+  targets            = {} # Always start empty; Lambda will populate if not using proxy
   security_groups    = [local.db_module.security_group_id]
-  allowed_principals = [var.redis_privatelink_arn]
+  allowed_principals = local.redis_privatelink_arns
   internal           = var.nlb_internal
 }
 
@@ -358,8 +364,8 @@ module "secret_manager" {
   # Otherwise running multiple apply-destroy cycles will fail because of the names conflicting.
   identifier         = "${var.name}-${random_id.secret_suffix.hex}"
   allowed_principals = [var.redis_secrets_arn]
-  username           = local.rdi_username  # debezium for MySQL, postgres for PostgreSQL
-  password           = local.rdi_password  # Corresponding password for RDI user
+  username           = local.rdi_username # debezium for MySQL, postgres for PostgreSQL
+  password           = local.rdi_password # Corresponding password for RDI user
 }
 
 # Fetch the RDS CA certificate bundle when TLS is required

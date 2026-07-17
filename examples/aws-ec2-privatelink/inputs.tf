@@ -19,10 +19,14 @@ variable "redis_secrets_arn" {
 }
 
 variable "redis_privatelink_arn" {
-  type = string
+  type = any
   validation {
-    condition     = var.redis_privatelink_arn != ""
-    error_message = "redis_privatelink_arn must be configured with the ARN from the UI"
+    condition = var.redis_privatelink_arn == null ? false : (
+      can(tolist(var.redis_privatelink_arn))
+      ? alltrue([for arn in tolist(var.redis_privatelink_arn) : tostring(arn) != ""])
+      : tostring(var.redis_privatelink_arn) != ""
+    )
+    error_message = "redis_privatelink_arn must be configured with the ARN(s) from the UI"
   }
 }
 

@@ -38,17 +38,28 @@ resource "aws_sns_topic_subscription" "rdi_failover_subscription" {
 }
 
 resource "aws_db_event_subscription" "rds_cluster_failover_event" {
-  name             = "${var.identifier}-rds-cluster-events"
-  sns_topic        = aws_sns_topic.rdi_failover_topic.arn
-  event_categories = ["creation", "failover", "failure"]
-  source_type      = "db-cluster"
+  name      = "${var.identifier}-rds-cluster-events"
+  sns_topic = aws_sns_topic.rdi_failover_topic.arn
+  # Include "configuration change" + "maintenance" so multi-AZ conversion and
+  # AZ migrations fire the Lambda too - not just failover events.
+  event_categories = ["creation", "failover", "failure", "configuration change", "maintenance"]
+  source_type      = var.source_type
   source_ids       = [var.rds_cluster_identifier]
   enabled          = true
 }
 
+# Re-invoke the lambda whenever the RDS endpoint or target group changes.
+# Without this trigger, recreating the RDS resource (or any path that doesn't
+# emit an RDS event) leaves the NLB pointing at the old IP. The lambda ignores
+# the payload - it always re-resolves from env vars - but the input change
+# forces terraform to re-run it.
 resource "aws_lambda_invocation" "initial" {
   function_name = aws_lambda_function.rdi_failover_lambda.function_name
-  input         = "{}"
+  input = jsonencode({
+    db_endpoint = var.db_endpoint
+    elb_tg_arn  = var.elb_tg_arn
+    db_port     = var.db_port
+  })
 }
 
 resource "aws_lambda_permission" "with_sns" {

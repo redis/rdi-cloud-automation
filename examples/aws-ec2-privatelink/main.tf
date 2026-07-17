@@ -18,6 +18,14 @@ provider "aws" {
   region = var.region
 }
 
+locals {
+  redis_privatelink_arns = (
+    var.redis_privatelink_arn == null ? [] :
+    can(tolist(var.redis_privatelink_arn)) ? [for arn in tolist(var.redis_privatelink_arn) : tostring(arn)] :
+    [tostring(var.redis_privatelink_arn)]
+  )
+}
+
 # Create an RDI quickstart Postgres database on an EC2 instance
 module "rdi_quickstart_postgres" {
   source = "../../modules/aws-rdi-quickstart-postgres"
@@ -39,9 +47,9 @@ module "privatelink" {
   vpc_id             = module.rdi_quickstart_postgres.vpc_id
   subnets            = module.rdi_quickstart_postgres.vpc_public_subnets
   target_type        = "instance"
-  targets            = {"db": module.rdi_quickstart_postgres.instance_id}
+  targets            = { "db" : module.rdi_quickstart_postgres.instance_id }
   security_groups    = [module.rdi_quickstart_postgres.security_group_id]
-  allowed_principals = [var.redis_privatelink_arn]
+  allowed_principals = local.redis_privatelink_arns
 }
 
 # Create a secret in AWS Secret Manager with the database credentials

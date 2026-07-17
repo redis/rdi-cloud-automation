@@ -20,6 +20,16 @@ variable "rds_arn" {
 }
 
 variable "rds_cluster_identifier" {
-  description = "The RDS cluster identifier for event subscription (always points to RDS, not proxy)"
+  description = "The RDS cluster or instance identifier for the event subscription (always points to RDS, not proxy)"
   type        = string
+}
+
+variable "source_type" {
+  description = "RDS event source type. 'db-cluster' for Aurora clusters; 'db-instance' for standalone RDS instances."
+  type        = string
+  default     = "db-cluster"
+  validation {
+    condition     = contains(["db-cluster", "db-instance"], var.source_type)
+    error_message = "source_type must be 'db-cluster' or 'db-instance'."
+  }
 }
