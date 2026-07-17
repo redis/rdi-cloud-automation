@@ -72,19 +72,32 @@ rds_id="rds-${RDI_PREFIX}-${short}"
 engine=""
 endpoint=""
 port=""
+database_name=""
 
 if cluster_json=$(aws rds describe-db-clusters --db-cluster-identifier "$aurora_id" 2>/dev/null); then
   engine=$(echo "$cluster_json" | jq -r '.DBClusters[0].Engine')
   endpoint=$(echo "$cluster_json" | jq -r '.DBClusters[0].Endpoint')
   port=$(echo "$cluster_json" | jq -r '.DBClusters[0].Port')
+  database_name=$(echo "$cluster_json" | jq -r '.DBClusters[0].DatabaseName // empty')
 elif instance_json=$(aws rds describe-db-instances --db-instance-identifier "$rds_id" 2>/dev/null); then
   engine=$(echo "$instance_json" | jq -r '.DBInstances[0].Engine')
   endpoint=$(echo "$instance_json" | jq -r '.DBInstances[0].Endpoint.Address')
   port=$(echo "$instance_json" | jq -r '.DBInstances[0].Endpoint.Port')
+  database_name=$(echo "$instance_json" | jq -r '.DBInstances[0].DBName // empty')
 else
   echo "No Aurora cluster '$aurora_id' or RDS instance '$rds_id' found." >&2
   echo "Tip: run \`make list\` to see available DBs." >&2
   exit 1
+fi
+
+# SQL Server RDS does not expose DBName because the bundled initialization
+# script creates `inventory` after instance creation. Other engines expose the
+# configured database name (or Oracle SID) through the RDS API.
+if [[ -z "$database_name" ]]; then
+  case "$engine" in
+    sqlserver-se|sqlserver-ex|sqlserver-web|sqlserver-ee) database_name="inventory" ;;
+    *) echo "RDS did not return a database name for '$short' (engine=$engine)." >&2; exit 1 ;;
+  esac
 fi
 
 # Find the Secrets Manager secret for this DB (name starts with "<prefix>-<short>-<random>").
@@ -106,6 +119,7 @@ DB:        $short
 engine:    $engine
 endpoint:  $endpoint
 port:      $port
+database:  $database_name
 user:      $username
 secret:    $secret_arn
 INFO
@@ -132,20 +146,20 @@ run_update() {
   fi
   echo "[$short] Running $script against engine=$engine ..."
   case "$family" in
-    mysql)     MYSQL_PWD="$password" mysql -h "$endpoint" -P "$port" -u "$username" inventory < "$script" ;;
-    postgres)  PGPASSWORD="$password" psql -h "$endpoint" -p "$port" -U "$username" -d inventory -v ON_ERROR_STOP=1 -f "$script" ;;
-    sqlserver) sqlcmd -S "$endpoint,$port" -U "$username" -P "$password" -d inventory -C -b -i "$script" ;;
-    oracle)    sqlplus -L -S "$username/$password@$endpoint:$port/ORCL" @"$script" ;;
+    mysql)     MYSQL_PWD="$password" mysql -h "$endpoint" -P "$port" -u "$username" "$database_name" < "$script" ;;
+    postgres)  PGPASSWORD="$password" psql -h "$endpoint" -p "$port" -U "$username" -d "$database_name" -v ON_ERROR_STOP=1 -f "$script" ;;
+    sqlserver) sqlcmd -S "$endpoint,$port" -U "$username" -P "$password" -d "$database_name" -C -b -i "$script" ;;
+    oracle)    sqlplus -L -S "$username/$password@$endpoint:$port/$database_name" @"$script" ;;
   esac
   echo "[$short] Update script complete."
 }
 
 run_shell() {
   case "$family" in
-    mysql)     MYSQL_PWD="$password" mysql -h "$endpoint" -P "$port" -u "$username" inventory ;;
-    postgres)  PGPASSWORD="$password" psql -h "$endpoint" -p "$port" -U "$username" -d inventory ;;
-    sqlserver) sqlcmd -S "$endpoint,$port" -U "$username" -P "$password" -d inventory -C ;;
-    oracle)    sqlplus -L "$username/$password@$endpoint:$port/ORCL" ;;
+    mysql)     MYSQL_PWD="$password" mysql -h "$endpoint" -P "$port" -u "$username" "$database_name" ;;
+    postgres)  PGPASSWORD="$password" psql -h "$endpoint" -p "$port" -U "$username" -d "$database_name" ;;
+    sqlserver) sqlcmd -S "$endpoint,$port" -U "$username" -P "$password" -d "$database_name" -C ;;
+    oracle)    sqlplus -L "$username/$password@$endpoint:$port/$database_name" ;;
   esac
 }
 
@@ -166,10 +180,10 @@ run_reset() {
   # user, so we may not have DDL via RDI user. Warn if that's the case.
   echo "[$short] Resetting from $script (engine=$engine)..."
   case "$family" in
-    mysql)     MYSQL_PWD="$password" mysql -h "$endpoint" -P "$port" -u "$username" inventory < "$script" ;;
-    postgres)  PGPASSWORD="$password" psql -h "$endpoint" -p "$port" -U "$username" -d inventory -v ON_ERROR_STOP=1 -f "$script" ;;
+    mysql)     MYSQL_PWD="$password" mysql -h "$endpoint" -P "$port" -u "$username" "$database_name" < "$script" ;;
+    postgres)  PGPASSWORD="$password" psql -h "$endpoint" -p "$port" -U "$username" -d "$database_name" -v ON_ERROR_STOP=1 -f "$script" ;;
     sqlserver) sqlcmd -S "$endpoint,$port" -U "$username" -P "$password" -d master -C -b -i "$script" ;;
-    oracle)    sqlplus -L -S "$username/$password@$endpoint:$port/ORCL" @"$script" ;;
+    oracle)    sqlplus -L -S "$username/$password@$endpoint:$port/$database_name" @"$script" ;;
   esac
   echo "[$short] Reset complete."
 }

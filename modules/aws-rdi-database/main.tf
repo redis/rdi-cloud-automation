@@ -53,6 +53,13 @@ module "secret" {
   allowed_principals = local.redis_secrets_arns
   username           = local.cfg.rdi_username
   password           = local.rdi_password
+
+  # Publish credentials only after the engine user/login has been created or
+  # updated, so Secrets Manager never gets ahead of a failed password rotation.
+  depends_on = [
+    null_resource.create_rdi_user_mysql,
+    null_resource.create_rdi_user_sqlserver,
+  ]
 }
 
 resource "random_id" "secret_suffix" {
