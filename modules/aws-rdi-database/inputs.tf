@@ -52,9 +52,17 @@ variable "network" {
 }
 
 variable "redis_secrets_arn" {
-  description = "AWS principal(s) allowed to read the credentials secret. null = no resource policy (closed); \"*\" = wide-open; ARN or list of ARNs = scoped to those principals."
+  description = "AWS principal(s) allowed to read the credentials secret. null or an empty list = no external resource policy; an ARN or list of ARNs scopes access to those principals. Wildcard access is not supported."
   type        = any
   default     = null
+  validation {
+    condition = var.redis_secrets_arn == null ? true : (
+      can(tolist(var.redis_secrets_arn))
+      ? alltrue([for arn in tolist(var.redis_secrets_arn) : tostring(arn) != "*" && tostring(arn) != ""])
+      : tostring(var.redis_secrets_arn) != "*" && tostring(var.redis_secrets_arn) != ""
+    )
+    error_message = "redis_secrets_arn must be an ARN or list of ARNs; empty strings and wildcard access are not supported."
+  }
 }
 
 variable "redis_privatelink_arn" {
@@ -88,7 +96,7 @@ variable "database_name" {
 }
 
 variable "init_sql_file" {
-  description = "Optional path to a SQL file imported into the engine-default database after provisioning. Path is resolved from the calling root module's directory (path.root). MySQL engines only; ignored for others. Requires public_access = true (or terraform running from inside the VPC) since it connects via the NLB."
+  description = "Optional path to a SQL file imported after provisioning. Path is resolved from the calling root module's directory (path.root). Automatic import runs only when public_access = true and requires the matching database client on the Terraform runner. For private databases, automatic import is skipped; use the bastion tooling or another in-VPC process instead."
   type        = string
   default     = null
 }

@@ -35,9 +35,17 @@ variable "redis_privatelink_arn" {
 }
 
 variable "redis_secrets_arn" {
-  description = "Default `redis_secrets_arn` for every DB that doesn't set its own. null = no resource policy, \"*\" = any AWS principal, ARN = scoped. Accepts either a single string or a list of strings."
+  description = "Default `redis_secrets_arn` for every DB that doesn't set its own. null = no resource policy; an ARN or list of ARNs scopes access to those principals. Wildcard access is not supported for secrets."
   type        = any
   default     = null
+  validation {
+    condition = var.redis_secrets_arn == null ? true : (
+      can(tolist(var.redis_secrets_arn))
+      ? alltrue([for arn in tolist(var.redis_secrets_arn) : tostring(arn) != "*" && tostring(arn) != ""])
+      : tostring(var.redis_secrets_arn) != "*" && tostring(var.redis_secrets_arn) != ""
+    )
+    error_message = "redis_secrets_arn must be an ARN or list of ARNs; empty strings and wildcard access are not supported."
+  }
 }
 
 variable "bastion" {
@@ -61,16 +69,23 @@ variable "databases" {
     Engine is required; everything else has a sensible default per engine.
 
     public_access = true makes the DB's NLB internet-facing and opens the DB port to allowed_cidrs.
-    Defaults to false (PrivateLink only). Auto CDC user creation requires reachability via the NLB,
-    so private-NLB deployments must run terraform from inside the VPC.
+    Defaults to false (PrivateLink only).
+
+    Dedicated CDC user creation for MySQL, MariaDB, and SQL Server runs from the Terraform
+    runner and requires reachability through the NLB. For a private NLB, run Terraform from
+    inside the VPC. Automatic init_sql_file loading runs only when public_access = true; for
+    private databases it is skipped so the bundled scripts can be run later from the bastion.
 
     allowed_cidrs - omitted = inherit the top-level `allowed_cidrs`; set explicitly (even `[]`)
                     to override (e.g. block all direct access on this one DB).
 
-    redis_secrets_arn / redis_privatelink_arn - three states:
-      - omitted (null): closed - no external principal can access this DB's secret / PrivateLink
-      - "*"           : open   - any AWS principal can access
+    Per-database ARN settings:
+      - omitted or null: inherit the corresponding top-level default
+      - []: closed - no external principal is granted access
       - specific ARN or list of ARNs: scoped to those Redis Cloud subscription principals
+      - redis_privatelink_arn = "*": any AWS principal can consume the endpoint
+
+    Wildcard access is not supported for redis_secrets_arn.
   EOT
   type        = any
 }
