@@ -4,8 +4,8 @@ set -euo pipefail
 
 DB_ENGINE=$(terraform output -raw database_engine)
 DB_HOST=$(terraform output -raw db_host)
-DB_USER=$(terraform output -raw database_username)
-DB_PASS=$(terraform output -raw password)
+DB_USER=$(terraform output -raw rdi_username)
+DB_PASS=$(terraform output -raw rdi_password)
 DB_PORT=$(terraform output -raw port)
 DB_NAME=$(terraform output -raw database)
 
@@ -19,4 +19,3 @@ else
     echo "Unknown database engine: $DB_ENGINE"
     exit 1
 fi
-

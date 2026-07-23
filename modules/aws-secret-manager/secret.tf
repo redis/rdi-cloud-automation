@@ -1,6 +1,6 @@
 resource "aws_secretsmanager_secret" "rdi_secret" {
   name       = var.identifier
-  kms_key_id = resource.aws_kms_key.rdi_key.arn
+  kms_key_id = local.kms_key_arn
   policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [for p in var.allowed_principals :
@@ -16,6 +16,8 @@ resource "aws_secretsmanager_secret" "rdi_secret" {
         }
     }]
   })
+
+  depends_on = [terraform_data.validate_kms_key]
 }
 
 resource "aws_secretsmanager_secret_version" "rdi_secret" {

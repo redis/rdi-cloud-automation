@@ -26,6 +26,21 @@ This repository provides production-ready Terraform modules to deploy and config
   - `mysql` for MySQL
   - `sqlcmd` for SQL Server
 
+Before running Terraform, authenticate to AWS in the same terminal session and verify the active identity:
+
+```bash
+aws sts get-caller-identity
+```
+
+If you use an AWS CLI profile, either set `AWS_PROFILE` or pass the matching `aws_profile` value in the example tfvars file:
+
+```bash
+export AWS_PROFILE=<profile-name>
+aws sts get-caller-identity
+```
+
+Terraform will use the AWS credentials available in the terminal unless the example provider is configured with a specific `aws_profile`.
+
 ## 📚 Examples
 
 The `examples` directory contains complete, ready-to-deploy examples:
@@ -233,7 +248,25 @@ terraform apply -var-file example-sqlserver.tfvars
 # Ready for SQL Server Change Tracking
 ```
 
-### 4. Multi-Region Deployment
+### 4. Existing Aurora PostgreSQL or MySQL
+
+Connect Redis Cloud RDI to a customer-owned Aurora PostgreSQL or Aurora MySQL database:
+
+```bash
+cd examples/aws-rds-privatelink-failover
+terraform plan -var-file example-existing-db.tfvars
+```
+
+Existing database mode requires:
+
+- Source database hostname, database name, and RDI credentials
+- Source VPC ID and database security group IDs
+- NLB subnet placement with explicit `subnet_ids` or `existing_db.subnet_lookup`
+- Redis Cloud RDI IAM role ARNs from the UI
+
+Prefer explicit `subnet_ids` for production. Use `subnet_lookup` only when subnet tags identify exactly one subnet per requested AZ. See the example README for the full configuration.
+
+### 5. Multi-Region Deployment
 
 Deploy databases in multiple AWS regions for disaster recovery:
 

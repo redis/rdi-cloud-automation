@@ -41,7 +41,7 @@ resource "aws_db_event_subscription" "rds_cluster_failover_event" {
   name             = "${var.identifier}-rds-cluster-events"
   sns_topic        = aws_sns_topic.rdi_failover_topic.arn
   event_categories = ["creation", "failover", "failure"]
-  source_type      = "db-cluster"
+  source_type      = var.rds_event_source_type
   source_ids       = [var.rds_cluster_identifier]
   enabled          = true
 }

@@ -1,6 +1,6 @@
 # AWS RDS PrivateLink with Automatic Failover
 
-Production-ready Terraform example to connect Redis Cloud RDI to AWS RDS databases (PostgreSQL, MySQL, or SQL Server) with automatic failover support via AWS PrivateLink.
+Production-ready Terraform example to connect Redis Cloud RDI to AWS RDS databases (PostgreSQL, MySQL, or SQL Server) with automatic failover support via AWS PrivateLink. It can either create a demo database or wrap an existing customer-owned RDS/Aurora database.
 
 ## 🚀 Overview
 
@@ -11,6 +11,8 @@ This example deploys a complete RDS infrastructure with:
 - ✅ **Lambda-based failover:** Automatically updates NLB targets during RDS failover
 - ✅ **Secure connectivity:** AWS PrivateLink for private VPC-to-VPC connections
 - ✅ **Optional sample data:** Chinook database (manual setup required)
+- ✅ **Existing database mode:** Reuse a customer-owned RDS/Aurora database and create only the surrounding Redis Cloud access infrastructure
+- ✅ **Customer-managed IAM option:** Use a pre-created Lambda execution role when the Terraform runner cannot create IAM roles
 
 ### Supported Database Engines
 
@@ -35,6 +37,29 @@ https://aws.amazon.com/blogs/database/access-amazon-rds-across-vpcs-using-aws-pr
   - `mysql` for MySQL
   - `sqlcmd` for SQL Server ([installation guide](https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-setup-tools))
 
+### AWS Authentication
+
+Before running `terraform plan`, `terraform apply`, or `terraform destroy`, authenticate to AWS in the same terminal session and verify the active identity:
+
+```bash
+aws sts get-caller-identity
+```
+
+If you use an AWS CLI profile, either export it before running Terraform:
+
+```bash
+export AWS_PROFILE=<profile-name>
+aws sts get-caller-identity
+```
+
+or set `aws_profile` in the tfvars file:
+
+```hcl
+aws_profile = "<profile-name>"
+```
+
+If `aws_profile = null`, Terraform uses the default AWS credential chain from the terminal environment. This is useful for SSO sessions, environment credentials, or temporary credentials, but always confirm the account and role with `aws sts get-caller-identity` before applying.
+
 ## 🚦 Quick Start
 
 1. **Initialize Terraform** (first time only):
@@ -48,6 +73,7 @@ https://aws.amazon.com/blogs/database/access-amazon-rds-across-vpcs-using-aws-pr
    - PostgreSQL: `example-postgres.tfvars`
    - MySQL: `example-mysql.tfvars`
    - SQL Server: `example-sqlserver.tfvars`
+   - Existing RDS/Aurora database: `example-existing-db.tfvars`
 
 4. **Deploy**:
    ```bash
@@ -59,6 +85,9 @@ https://aws.amazon.com/blogs/database/access-amazon-rds-across-vpcs-using-aws-pr
 
    # For SQL Server
    terraform apply -var-file example-sqlserver.tfvars
+
+   # For an existing RDS/Aurora database
+   terraform apply -var-file example-existing-db.tfvars
    ```
 
 5. **Connect** to verify (optional):
@@ -67,6 +96,46 @@ https://aws.amazon.com/blogs/database/access-amazon-rds-across-vpcs-using-aws-pr
    ```
 
 ## 📝 Configuration
+
+### Deployment Modes
+
+This example has three independent mode switches:
+
+| Mode | Variable | Default | Purpose |
+|------|----------|---------|---------|
+| Source database | `source_db_mode` | `"demo"` | Choose whether Terraform creates a demo database or connects to an existing RDS/Aurora database |
+| Lambda IAM role | `lambda_role_mode` | `"managed"` | Choose whether Terraform creates the failover Lambda execution role or uses a pre-created role |
+| Secrets Manager KMS key | `kms_key_mode` | `"managed"` | Choose whether Terraform creates the KMS key for the RDI secret or uses a pre-created key |
+
+The default path is:
+
+```hcl
+source_db_mode   = "demo"
+lambda_role_mode = "managed"
+kms_key_mode     = "managed"
+use_rds_proxy    = false
+```
+
+For customer prototyping against an existing database, use:
+
+```hcl
+source_db_mode = "existing"
+use_rds_proxy  = false
+```
+
+If the Terraform runner cannot create IAM roles, also set:
+
+```hcl
+lambda_role_mode                  = "existing"
+existing_lambda_execution_role_arn = "arn:aws:iam::123456789012:role/precreated-rdi-failover-lambda-role"
+```
+
+If the Terraform runner cannot create or manage KMS keys, also set:
+
+```hcl
+kms_key_mode         = "existing"
+existing_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+```
 
 ### Required Variables
 
@@ -80,6 +149,63 @@ redis_secrets_arn     = "arn:aws:iam::YOUR_ACCOUNT:role/YOUR_ROLE"
 redis_privatelink_arn = "arn:aws:iam::YOUR_ACCOUNT:role/YOUR_ROLE"
 ```
 
+Set `source_db_mode = "demo"` to create a sample database, or `source_db_mode = "existing"` to reuse a customer-owned RDS/Aurora database.
+
+### Existing Database Configuration
+
+Use `example-existing-db.tfvars` when the source database and dataset already exist. The database hostname and credentials are required, and Terraform also needs the source database VPC/subnet/security group metadata so it can create the NLB and PrivateLink service in the same network.
+
+```hcl
+source_db_mode = "existing"
+
+existing_db = {
+  hostname              = "my-db.cluster-xxxxxxxxxxxx.us-east-1.rds.amazonaws.com"
+  username              = "rdi_user"
+  database              = "my_database"
+  vpc_id                = "vpc-xxxxxxxxxxxxxxxxx"
+  subnet_ids            = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-yyyyyyyyyyyyyyyyy"]
+  db_security_group_ids = ["sg-xxxxxxxxxxxxxxxxx"]
+  rds_event_source_id   = "my-db"
+  rds_event_source_type = "db-cluster"
+}
+
+existing_db_password = "..."
+```
+
+`subnet_ids` is the most deterministic option. These are the subnets where AWS creates the NLB nodes, and they must be in the same VPC as the source database.
+
+If customers do not want to copy subnet IDs, they can use `subnet_lookup` instead. Terraform resolves one subnet per requested Availability Zone in `existing_db.vpc_id`:
+
+```hcl
+existing_db = {
+  hostname              = "my-db.cluster-xxxxxxxxxxxx.us-east-1.rds.amazonaws.com"
+  username              = "rdi_user"
+  database              = "my_database"
+  vpc_id                = "vpc-xxxxxxxxxxxxxxxxx"
+  db_security_group_ids = ["sg-xxxxxxxxxxxxxxxxx"]
+  rds_event_source_id   = "my-db"
+  rds_event_source_type = "db-cluster"
+
+  subnet_lookup = {
+    azs = ["1a", "1b"]
+    tags = {
+      Tier = "private"
+    }
+  }
+}
+```
+
+The `azs` values can be full names like `us-east-1a`, short names like `a`, or region-number suffixes like `1a`. If the lookup matches zero subnets or more than one subnet in an AZ, Terraform fails and asks for more specific tags or explicit `subnet_ids`. Do not set both `subnet_ids` and `subnet_lookup`.
+
+Use `rds_event_source_type = "db-cluster"` for Aurora clusters and `rds_event_source_type = "db-instance"` for standard RDS instances.
+
+By default, Terraform creates a dedicated security group for the NLB but does not modify the customer database security groups. Either:
+
+- Set `manage_existing_db_security_group_ingress = true` to let Terraform add ingress from the generated NLB security group to `existing_db.db_security_group_ids`.
+- Keep it `false` and manually allow the `existing_db_nlb_security_group_id` output to connect to the database port.
+
+Existing database mode does not create database users and does not load sample data. The supplied `existing_db.username` and `existing_db_password` are stored in AWS Secrets Manager for Redis Cloud RDI.
+
 ### Engine-Specific Configuration
 
 Each tfvars file is pre-configured for its database engine:
@@ -90,6 +216,263 @@ Each tfvars file is pre-configured for its database engine:
 | `port` | `5432` | `3306` | `1433` |
 
 ### Optional Configuration
+
+#### Lambda IAM Role Modes
+
+When `use_rds_proxy = false` (the default), Terraform creates a Lambda function that keeps the NLB target group pointed at the current RDS writer endpoint. That Lambda needs an execution role.
+
+By default, Terraform creates the role and inline policies:
+
+```hcl
+lambda_role_mode = "managed"
+```
+
+Use this mode for internal testing, sandbox accounts, and accounts where the Terraform runner can create IAM roles and policies.
+
+For customer accounts where IAM is centrally managed, ask the customer AWS admin to pre-create the role and pass its ARN:
+
+```hcl
+lambda_role_mode                  = "existing"
+existing_lambda_execution_role_arn = "arn:aws:iam::123456789012:role/precreated-rdi-failover-lambda-role"
+```
+
+In `existing` role mode, Terraform still creates and configures the Lambda function, SNS topic, RDS event subscription, NLB, PrivateLink endpoint service, security groups, and Secrets Manager resources. It only skips creating the Lambda IAM role and role policies.
+
+This is a bring-your-own-role mode, not a bring-your-own-Lambda-function mode. Keeping the Lambda function managed by this example preserves the known-good failover handler, environment variables, SNS wiring, and initial target registration behavior while removing the most common enterprise IAM blocker.
+
+The pre-created Lambda execution role must trust Lambda:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+It also needs permissions equivalent to:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DescribeNetworkInterfaces",
+        "elasticloadbalancing:DescribeTargetHealth",
+        "elasticloadbalancing:DeregisterTargets",
+        "elasticloadbalancing:RegisterTargets"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+The Terraform runner still needs `iam:PassRole` for the supplied role ARN because AWS requires that permission when creating or updating a Lambda function with an existing role.
+
+##### AWS Console Shortcut
+
+If the role is created in the AWS console:
+
+1. Go to IAM → Roles → Create role.
+2. Select **AWS service** as the trusted entity.
+3. Select **Lambda** as the use case.
+4. Attach the AWS managed policy `AWSLambdaVPCAccessExecutionRole`.
+5. Add the ELB target group inline policy shown above.
+6. Copy the created role ARN into `existing_lambda_execution_role_arn`.
+
+`AWSLambdaVPCAccessExecutionRole` covers the CloudWatch Logs and VPC network-interface permissions. The inline ELB policy is still required because the failover Lambda registers and deregisters NLB target IPs.
+
+##### Terraform Runner PassRole Permission
+
+The user or role running Terraform needs permission to pass only the approved Lambda execution role. An AWS admin can grant that with a scoped policy like:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::123456789012:role/precreated-rdi-failover-lambda-role",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "lambda.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
+```
+
+Without this permission, `lambda_role_mode = "existing"` gets past IAM role creation but Lambda creation/update can still fail with `iam:PassRole`.
+
+##### Testing With PowerUser Access
+
+To prove the default failure mode, leave `lambda_role_mode` unset or set it to `managed`:
+
+```hcl
+lambda_role_mode = "managed"
+```
+
+A PowerUser-style account that cannot create IAM roles is expected to fail with `iam:CreateRole`.
+
+To test the customer-managed role path, set:
+
+```hcl
+lambda_role_mode                   = "existing"
+existing_lambda_execution_role_arn = "arn:aws:iam::123456789012:role/precreated-rdi-failover-lambda-role"
+use_rds_proxy                      = false
+```
+
+Then run:
+
+```bash
+terraform plan -var-file example-existing-db.tfvars
+```
+
+The plan should no longer include:
+
+```text
+module.rds_lambda[0].aws_iam_role.lambda_execution_role[0]
+module.rds_lambda[0].aws_iam_role_policy.ec2_elb_lambda_execution_role_policy[0]
+module.rds_lambda[0].aws_iam_role_policy.log_group_lambda_execution_role_policy[0]
+```
+
+If `lambda_role_mode = "existing"` is set without `existing_lambda_execution_role_arn`, Terraform fails early with a validation error. If the role exists but the Terraform runner lacks `iam:PassRole`, apply is expected to fail at Lambda creation/update.
+
+#### KMS Key Modes
+
+The RDI database credentials are stored in AWS Secrets Manager. By default, this example creates a customer-managed KMS key for that secret:
+
+```hcl
+kms_key_mode = "managed"
+```
+
+Use this mode for sandbox accounts and accounts where the Terraform runner can create and manage KMS keys and key policies.
+
+For customer accounts where KMS keys are centrally managed, ask the customer AWS admin to pre-create the key and pass its ARN:
+
+```hcl
+kms_key_mode         = "existing"
+existing_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+```
+
+In `existing` KMS mode, Terraform still creates the Secrets Manager secret and secret policy. It only skips creating, configuring, tagging, and deleting the KMS key. Terraform does not modify the existing key policy.
+
+The pre-created KMS key policy must allow all required principals. At minimum, make sure it allows:
+
+- The Terraform runner to use the key while creating and updating the secret.
+- The Redis Cloud secrets role from `redis_secrets_arn` to decrypt the secret.
+- The RDS Proxy role if deprecated `use_rds_proxy = true`.
+
+A practical key policy statement for Redis Cloud secret reads looks like:
+
+```json
+{
+  "Sid": "AllowRedisCloudSecretsRoleToDecryptRDISecret",
+  "Effect": "Allow",
+  "Principal": {
+    "AWS": "arn:aws:iam::123456789012:role/redis-data-pipeline-secrets-role"
+  },
+  "Action": [
+    "kms:Decrypt",
+    "kms:DescribeKey"
+  ],
+  "Resource": "*",
+  "Condition": {
+    "StringEquals": {
+      "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com"
+    },
+    "StringLike": {
+      "kms:EncryptionContext:aws:secretsmanager:arn": "arn:aws:secretsmanager:us-east-1:123456789012:secret:rdi-rds-demo-*"
+    }
+  }
+}
+```
+
+Adjust the region, account ID, role ARN, and secret name prefix to match the deployment. If the secret name is not known ahead of time, use a broader encryption-context pattern approved by the customer security team.
+
+A practical key policy statement for the Terraform runner looks like:
+
+```json
+{
+  "Sid": "AllowTerraformRunnerToUseKeyForSecretsManager",
+  "Effect": "Allow",
+  "Principal": {
+    "AWS": "arn:aws:iam::123456789012:role/customer-terraform-runner-role"
+  },
+  "Action": [
+    "kms:DescribeKey",
+    "kms:Encrypt",
+    "kms:Decrypt",
+    "kms:ReEncrypt*",
+    "kms:GenerateDataKey*",
+    "kms:CreateGrant",
+    "kms:ListGrants",
+    "kms:RevokeGrant"
+  ],
+  "Resource": "*",
+  "Condition": {
+    "StringEquals": {
+      "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com"
+    }
+  }
+}
+```
+
+Some organizations prefer to manage grants instead of broad key-policy statements. That is fine as long as Secrets Manager can use the key and the Redis Cloud secrets role can decrypt the secret value at runtime.
+
+##### Testing With PowerUser Access
+
+To prove the default failure mode, leave `kms_key_mode` unset or set it to `managed`:
+
+```hcl
+kms_key_mode = "managed"
+```
+
+A PowerUser-style account that cannot create or manage KMS keys may fail on `kms:CreateKey`, `kms:PutKeyPolicy`, `kms:TagResource`, or related KMS actions.
+
+To test the customer-managed KMS path, set:
+
+```hcl
+kms_key_mode         = "existing"
+existing_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+```
+
+Then run:
+
+```bash
+terraform plan -var-file example-existing-db.tfvars
+```
+
+The plan should no longer include:
+
+```text
+module.secret_manager.aws_kms_key.rdi_key[0]
+```
+
+If `kms_key_mode = "existing"` is set without `existing_kms_key_arn`, Terraform fails early with a validation error. If the key policy does not trust the Terraform runner or Redis Cloud secrets role, apply or RDI secret reads can still fail with KMS access errors.
 
 #### Public NLB Access (Testing)
 
@@ -120,6 +503,8 @@ rds_proxy_require_tls = true  # Optional
 - Direct RDS connection is more reliable
 - Lambda-based failover is more efficient
 
+For existing database mode, keep `use_rds_proxy = false` unless the source is an Aurora cluster and the RDS Proxy target can be registered by cluster identifier. Standard RDS instance targets should use the direct NLB + Lambda path.
+
 ## 🔌 Connecting to the Database
 
 ### From Your Laptop
@@ -141,8 +526,8 @@ Get connection information from Terraform outputs:
 
 ```bash
 terraform output nlb_dns_name
-terraform output db_username
-terraform output db_password
+terraform output rdi_username
+terraform output rdi_password
 ```
 
 ### Manual Connection Examples
@@ -164,11 +549,11 @@ sqlcmd -S <nlb_dns_name>,1433 -U rdi_user -P '<password>' -d master
 
 ## 📊 Sample Data Setup (Optional)
 
-The Chinook sample database setup is **commented out by default** in `db_setup.tf` because it requires network access to the private RDS instance.
+Sample data loading is intentionally handled outside Terraform. Loading Chinook requires a client that can reach the database endpoint, and that access pattern depends on the customer's network setup.
 
-### Why It's Commented Out
+### Why It's Manual
 
-The `null_resource` provisioners in `db_setup.tf` need to connect to the RDS instance to load data. This requires:
+Database clients need network access to the source database or NLB. This requires:
 - Either `nlb_internal = false` (public NLB) for direct access
 - Or VPN/bastion host access to the VPC
 
@@ -177,11 +562,8 @@ The `null_resource` provisioners in `db_setup.tf` need to connect to the RDS ins
 #### Option 1: Public NLB (Testing Only)
 
 1. Set `nlb_internal = false` in your tfvars file
-2. Uncomment the appropriate resource in `db_setup.tf`:
-   - `null_resource.setup_chinook_postgres` for PostgreSQL
-   - `null_resource.setup_chinook_mysql` for MySQL
-   - `null_resource.setup_chinook_sqlserver` for SQL Server
-3. Run `terraform apply -var-file example-<engine>.tfvars`
+2. Run `terraform apply -var-file example-<engine>.tfvars`
+3. Load the relevant Chinook script from the machine running the database client
 
 **Security note:** Only use public NLB for testing. Use private NLB for production.
 
@@ -311,6 +693,31 @@ NLB Target Group
 - ✅ **VPC isolation:** Database in private subnets
 - ✅ **Security groups:** Restrict access to NLB only
 - ✅ **TLS encryption:** Supported for all engines
+
+## 🔐 IAM and Customer Account Pitfalls
+
+Many customer AWS accounts do not allow application teams to create or manage IAM roles, even when they have broad PowerUser-style access. In that case, the default `lambda_role_mode = "managed"` path can fail on actions such as:
+
+- `iam:CreateRole`
+- `iam:PutRolePolicy`
+- `iam:AttachRolePolicy`
+- `iam:PassRole`
+
+Use `lambda_role_mode = "existing"` when IAM roles must be created by a central cloud/security team. This removes the `iam:CreateRole` and role-policy creation requirements from this Terraform example, but the Terraform runner still needs `iam:PassRole` for the pre-created Lambda execution role.
+
+Use `kms_key_mode = "existing"` when KMS keys must be created and governed by a central cloud/security team. This removes KMS key creation and key-policy management from this Terraform example, but the pre-created key policy must already allow Secrets Manager use and decrypt access for the Redis Cloud secrets role.
+
+The Terraform runner may also need permissions for:
+
+- ELBv2/NLB resources and target groups
+- EC2 VPC security groups and security group rules
+- Lambda function create/update/invoke permissions
+- SNS topics, topic policies, subscriptions, and RDS event subscriptions
+- Secrets Manager secrets and secret policies
+- KMS key creation/use when creating managed secrets, or KMS key usage when `kms_key_mode = "existing"`
+- Resource tagging APIs such as `ListTagsForResource`
+
+If a customer cannot grant these permissions broadly, pre-create the Lambda execution role with the policy shown in [Lambda IAM Role Modes](#lambda-iam-role-modes), pre-create the KMS key with the policy shown in [KMS Key Modes](#kms-key-modes), then run the example with `lambda_role_mode = "existing"` and/or `kms_key_mode = "existing"`.
 
 ## 🗑️ Cleanup
 

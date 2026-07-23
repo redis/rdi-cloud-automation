@@ -9,8 +9,8 @@ output "secret_arn" {
 }
 
 output "database" {
-  value       = "chinook"
-  description = "The name of the reference database"
+  value       = local.source_db.database
+  description = "The source database name"
 }
 
 output "database_engine" {
@@ -20,15 +20,15 @@ output "database_engine" {
 
 output "database_engine_version" {
   value = (
-    var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].engine_version :
-    var.db_engine == "sqlserver" ? module.rdi_quickstart_sqlserver[0].engine_version :
+    var.source_db_mode == "demo" && var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].engine_version :
+    var.source_db_mode == "demo" && var.db_engine == "sqlserver" ? module.rdi_quickstart_sqlserver[0].engine_version :
     null
   )
-  description = "The database engine version (MySQL and SQL Server only, shows latest version)"
+  description = "The database engine version (demo MySQL and SQL Server only, shows latest version)"
 }
 
 output "database_username" {
-  value       = local.db_username
+  value       = local.source_db.username
   description = "The database username"
 }
 
@@ -38,9 +38,9 @@ output "port" {
 }
 
 output "password" {
-  value       = random_password.db_password.result
+  value       = var.source_db_mode == "demo" ? random_password.db_password.result : null
   sensitive   = true
-  description = "The database password. This is not used for RDI setup, only to connect to the DB directly"
+  description = "The generated demo database password. Null for source_db_mode = 'existing'."
 }
 
 output "db_host" {
@@ -84,6 +84,31 @@ output "actual_db_endpoint" {
   description = "The actual database endpoint being used (RDS Proxy if enabled, otherwise direct RDS endpoint)"
 }
 
+output "source_db_mode" {
+  value       = var.source_db_mode
+  description = "Whether the deployment is using a generated demo database or an existing database"
+}
+
+output "lambda_role_mode" {
+  value       = var.lambda_role_mode
+  description = "Whether Terraform created the failover Lambda execution role or used an existing role"
+}
+
+output "existing_lambda_execution_role_arn" {
+  value       = var.lambda_role_mode == "existing" ? var.existing_lambda_execution_role_arn : null
+  description = "The existing Lambda execution role ARN used when lambda_role_mode = 'existing'"
+}
+
+output "kms_key_mode" {
+  value       = var.kms_key_mode
+  description = "Whether Terraform created the Secrets Manager KMS key or used an existing key"
+}
+
+output "kms_key_arn" {
+  value       = module.secret_manager.kms_key_arn
+  description = "The KMS key ARN used by Secrets Manager for the RDI secret"
+}
+
 output "nlb_internal" {
   value       = var.nlb_internal
   description = "Whether the NLB is internal (private) or internet-facing (public)"
@@ -92,4 +117,14 @@ output "nlb_internal" {
 output "nlb_dns_name" {
   value       = module.privatelink.lb_hostname
   description = "The DNS name of the NLB (use this to connect directly when nlb_internal=false)"
+}
+
+output "rds_direct_endpoint" {
+  value       = local.source_db.endpoint
+  description = "The direct source database endpoint"
+}
+
+output "existing_db_nlb_security_group_id" {
+  value       = var.source_db_mode == "existing" ? aws_security_group.existing_db_nlb[0].id : null
+  description = "The generated NLB security group ID for existing database mode. Allow this SG to reach the source database when manage_existing_db_security_group_ingress is false."
 }
