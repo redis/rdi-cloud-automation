@@ -79,6 +79,14 @@ terraform apply -var-file example-sqlserver.tfvars
 
 See [examples/aws-rds-privatelink-failover/README.md](examples/aws-rds-privatelink-failover/README.md) for detailed documentation.
 
+### aws-existing-db-privatelink
+
+Creates the AWS-side PrivateLink, NLB, optional Secrets Manager, optional security group rule, and optional RDS/Aurora failover target refresh resources for an existing source database. This example does not create the database.
+
+**Use case:** Customers who already have Aurora, RDS, or another database reachable from an AWS VPC and need to connect it to Redis Cloud RDI.
+
+See [examples/aws-existing-db-privatelink/README.md](examples/aws-existing-db-privatelink/README.md) for detailed documentation.
+
 ## 🧩 Modules
 
 The `modules` directory contains reusable Terraform modules which can be composed together to build custom database infrastructure.
