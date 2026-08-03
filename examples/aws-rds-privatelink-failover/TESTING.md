@@ -99,9 +99,9 @@ Load data from a bastion host, VPN-connected workstation, SSM-managed EC2 instan
 |---------|-----------|-------|
 | Default Port | 5432 | 3306 |
 | Default Username | postgres | admin |
-| Engine Version | aurora-postgresql17 | aurora-mysql 8.0.mysql_aurora.3.05.2 |
+| Engine Version | aurora-postgresql 18.4 | aurora-mysql 8.0.mysql_aurora.3.05.2 |
 | CDC Configuration | logical_replication | binlog_format + binlog_row_image |
-| Parameter Family | aurora-postgresql17 | aurora-mysql8.0 |
+| Parameter Family | aurora-postgresql18 | aurora-mysql8.0 |
 
 ## Outputs
 

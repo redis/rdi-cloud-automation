@@ -20,11 +20,12 @@ output "database_engine" {
 
 output "database_engine_version" {
   value = (
+    var.source_db_mode == "demo" && var.db_engine == "postgres" ? module.rdi_quickstart_postgres[0].engine_version :
     var.source_db_mode == "demo" && var.db_engine == "mysql" ? module.rdi_quickstart_mysql[0].engine_version :
     var.source_db_mode == "demo" && var.db_engine == "sqlserver" ? module.rdi_quickstart_sqlserver[0].engine_version :
     null
   )
-  description = "The database engine version (demo MySQL and SQL Server only, shows latest version)"
+  description = "The database engine version for demo databases. Null for source_db_mode = 'existing'."
 }
 
 output "database_username" {

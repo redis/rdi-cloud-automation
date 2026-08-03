@@ -13,6 +13,11 @@ output "database" {
   description = "The name of the Postgres reference database"
 }
 
+output "database_engine_version" {
+  value       = "18.4"
+  description = "The PostgreSQL version run by the EC2 Docker container"
+}
+
 output "port" {
   value       = var.port
   description = "The port for the NLB"

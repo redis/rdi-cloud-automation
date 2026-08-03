@@ -3,6 +3,11 @@ output "engine" {
   value       = var.engine
 }
 
+output "engine_version" {
+  description = "Resolved database engine version."
+  value       = local.engine_version
+}
+
 output "endpoint" {
   description = "Direct RDS endpoint hostname (only reachable from inside the VPC)."
   value       = local.endpoint

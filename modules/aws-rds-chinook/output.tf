@@ -18,6 +18,10 @@ output "rds_endpoint" {
   value = aws_rds_cluster.postgresql.endpoint
 }
 
+output "engine_version" {
+  value = aws_rds_cluster.postgresql.engine_version
+}
+
 output "security_group_id" {
   value = aws_security_group.producer_sg.id
 }

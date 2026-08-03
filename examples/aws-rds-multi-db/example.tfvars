@@ -54,7 +54,7 @@ databases = {
   # Aurora example. Uncomment any optional override you need.
   aurora-postgres = {
     engine = "aurora-postgres"
-    # engine_version        = "17.5"
+    # engine_version        = "18.4"
     # instance_class        = "db.t4g.medium"
     # aurora_instance_count = 2
     public_access = true

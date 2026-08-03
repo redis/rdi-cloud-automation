@@ -1,6 +1,7 @@
 resource "aws_rds_cluster" "postgresql" {
   cluster_identifier              = "aurora-${var.identifier}"
   engine                          = "aurora-postgresql"
+  engine_version                  = "18.4"
   database_name                   = "chinook"
   master_username                 = "postgres"
   master_password                 = var.db_password
@@ -18,7 +19,7 @@ resource "aws_rds_cluster" "postgresql" {
 
 resource "aws_rds_cluster_parameter_group" "default" {
   name   = var.identifier
-  family = "aurora-postgresql17"
+  family = "aurora-postgresql18"
 
   parameter {
     name         = "rds.logical_replication"

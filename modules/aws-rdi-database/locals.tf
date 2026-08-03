@@ -6,8 +6,8 @@ locals {
     "aurora-postgres" = {
       type                   = "aurora"
       engine                 = "aurora-postgresql"
-      engine_major_version   = "17"
-      parameter_group_family = "aurora-postgresql17"
+      engine_major_version   = "18"
+      parameter_group_family = "aurora-postgresql18"
       default_port           = 5432
       default_instance_class = "db.t4g.medium"
       master_username        = "postgres"
@@ -44,8 +44,8 @@ locals {
     "postgres" = {
       type                   = "rds"
       engine                 = "postgres"
-      engine_major_version   = "16"
-      parameter_group_family = "postgres16"
+      engine_major_version   = "18"
+      parameter_group_family = "postgres18"
       default_port           = 5432
       default_instance_class = "db.t4g.medium"
       master_username        = "postgres"

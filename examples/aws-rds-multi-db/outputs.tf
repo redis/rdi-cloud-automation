@@ -30,6 +30,7 @@ output "databases" {
   value = {
     for key, db in module.db : key => {
       engine                    = db.engine
+      engine_version            = db.engine_version
       endpoint                  = db.endpoint
       port                      = db.port
       rdi_username              = db.rdi_username
