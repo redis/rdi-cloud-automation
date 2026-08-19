@@ -3,12 +3,17 @@
 
 # AWS Configuration
 region      = "us-east-1"
-aws_profile = null  # Set to your AWS CLI profile name, or use AWS_PROFILE env var
+aws_profile = null # Set to your AWS CLI profile name, or use AWS_PROFILE env var
 
 # Database Configuration
 db_engine = "sqlserver"
-port      = 1433  # Default SQL Server port
+port      = 1433 # Default SQL Server port
 name      = "rdi-rds-sqlserver"
+
+tags = {
+  owner = "example-owner"
+  team  = "example-team"
+}
 
 # Availability Zones (use zone IDs for your region)
 # To get zone IDs: aws ec2 describe-availability-zones --region us-east-1
@@ -20,10 +25,9 @@ redis_secrets_arn     = "arn:aws:iam..."
 redis_privatelink_arn = "arn:aws:iam..."
 
 # RDS Proxy Configuration (DEPRECATED - not recommended for new deployments)
-use_rds_proxy        = false
+use_rds_proxy         = false
 rds_proxy_require_tls = false
 
 # Network Load Balancer Configuration
 # Set to false for public NLB (testing only), true for private NLB (production)
 nlb_internal = true
-

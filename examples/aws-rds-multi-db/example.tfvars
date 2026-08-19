@@ -12,6 +12,13 @@ aws_profile = null
 
 name = "rdi-mdb-ex"
 
+# Optional custom tags applied to every taggable AWS resource in this setup.
+tags = {
+  owner       = "example-owner"
+  team        = "example-team"
+  environment = "development"
+}
+
 # Availability Zone IDs are stable across AWS accounts, unlike AZ names.
 # Replace these IDs if you choose a different region.
 network = {

@@ -1,7 +1,11 @@
-region                = ""
-source_db_mode        = "existing"
-port                  = 5432 # Use 5432 for postgres, 3306 for mysql
-name                  = ""
+region         = ""
+source_db_mode = "existing"
+port           = 5432 # Use 5432 for postgres, 3306 for mysql
+name           = ""
+tags = {
+  owner = "example-owner"
+  team  = "example-team"
+}
 redis_secrets_arn     = ""
 redis_privatelink_arn = ""
 db_engine             = "postgres" # Options: "postgres" or "mysql"

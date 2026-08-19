@@ -147,9 +147,17 @@ azs                   = ["use1-az2", "use1-az4", "use1-az6"]
 name                  = "rdi-rds-demo"
 redis_secrets_arn     = "arn:aws:iam::YOUR_ACCOUNT:role/YOUR_ROLE"
 redis_privatelink_arn = "arn:aws:iam::YOUR_ACCOUNT:role/YOUR_ROLE"
+
+tags = {
+  owner       = "example-owner"
+  team        = "example-team"
+  environment = "production"
+}
 ```
 
 Set `source_db_mode = "demo"` to create a sample database, or `source_db_mode = "existing"` to reuse a customer-owned RDS/Aurora database.
+
+`tags` is optional and accepts arbitrary key-value pairs. Terraform applies the map to every taggable AWS resource created by this setup and its child modules. No tag keys are reserved or required. Resource-specific tags such as `Name` take precedence when keys overlap, and existing customer-owned resources are not retagged.
 
 ### Existing Database Configuration
 

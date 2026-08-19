@@ -41,6 +41,21 @@ aws sts get-caller-identity
 
 Terraform will use the AWS credentials available in the terminal unless the example provider is configured with a specific `aws_profile`.
 
+## Resource Tags
+
+Every runnable AWS example accepts an optional `tags` map. Each entry is a custom tag applied to every AWS resource type that supports tagging, including resources created by child modules:
+
+```hcl
+tags = {
+  owner       = "example-owner"
+  team        = "example-team"
+  environment = "production"
+  cost_center = "cc-1234"
+}
+```
+
+No tag keys are reserved or required. Resource-specific tags such as `Name` are preserved and take precedence if the same key is also supplied in `tags`. AWS resources that do not support tags, and existing resources referenced by an example, are not modified.
+
 ## 📚 Examples
 
 The `examples` directory contains complete, ready-to-deploy examples:

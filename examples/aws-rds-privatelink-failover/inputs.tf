@@ -21,6 +21,13 @@ variable "name" {
   type = string
 }
 
+variable "tags" {
+  description = "Tags to apply to every taggable AWS resource created by this setup."
+  type        = map(string)
+  default     = {}
+  nullable    = false
+}
+
 variable "redis_secrets_arn" {
   type = string
   validation {

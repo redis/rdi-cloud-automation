@@ -17,6 +17,10 @@ provider "aws" {
   # Configure the region for the resources
   region  = var.region
   profile = var.aws_profile
+
+  default_tags {
+    tags = var.tags
+  }
 }
 
 resource "terraform_data" "validate_demo_azs" {

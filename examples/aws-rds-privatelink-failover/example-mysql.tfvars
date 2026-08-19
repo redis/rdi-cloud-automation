@@ -1,11 +1,15 @@
-region                = "eu-central-1"
-azs                   = ["euc1-az1", "euc1-az2", "euc1-az3"]
-port                  = 3306  # MySQL default port
-name                  = "rdi-rds-mysql-zdravko"
+region = "eu-central-1"
+azs    = ["euc1-az1", "euc1-az2", "euc1-az3"]
+port   = 3306 # MySQL default port
+name   = "rdi-rds-mysql-zdravko"
+tags = {
+  owner = "example-owner"
+  team  = "example-team"
+}
 redis_secrets_arn     = "..."
 redis_privatelink_arn = "..."
 db_engine             = "mysql"
 aws_profile           = "dev-rdi"
-use_rds_proxy = false
+use_rds_proxy         = false
 # rds_proxy_require_tls = false
 nlb_internal = false

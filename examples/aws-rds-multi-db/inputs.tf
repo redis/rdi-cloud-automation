@@ -14,6 +14,13 @@ variable "name" {
   type        = string
 }
 
+variable "tags" {
+  description = "Tags to apply to every taggable AWS resource created by this setup."
+  type        = map(string)
+  default     = {}
+  nullable    = false
+}
+
 variable "network" {
   description = "Shared VPC settings. One VPC is created and reused by every database."
   type = object({

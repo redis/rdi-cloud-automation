@@ -23,6 +23,17 @@ Before applying, edit `local.tfvars` and replace the documentation-only ARNs,
 CIDR, region-specific Availability Zone IDs, and any other example values. The
 `local.tfvars` filename is ignored by Git.
 
+The optional `tags` map applies custom tags to every taggable AWS resource in
+the deployment, including resources created for each database:
+
+```hcl
+tags = {
+  owner       = "example-owner"
+  team        = "example-team"
+  environment = "development"
+}
+```
+
 Inspect the created connection details with:
 
 ```bash

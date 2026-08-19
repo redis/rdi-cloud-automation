@@ -16,6 +16,10 @@ terraform {
 provider "aws" {
   # Configure the region for the resources
   region = var.region
+
+  default_tags {
+    tags = var.tags
+  }
 }
 
 locals {

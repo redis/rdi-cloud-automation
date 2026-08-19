@@ -15,6 +15,16 @@ Run `terraform init` to initialize the Terraform repository. This is only necess
 
 Copy the values from the Redis Cloud RDI UI into `example.tfvars`. 
 
+Optionally set `tags` to apply custom tags to every taggable AWS resource created by the example:
+
+```hcl
+tags = {
+  owner       = "example-owner"
+  team        = "example-team"
+  environment = "development"
+}
+```
+
 Run `terraform apply -var-file example.tfvars`
 
 ## Connecting to the database
